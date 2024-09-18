@@ -1,0 +1,9 @@
+[Tests]
+  issues = '#1'
+  [HM_tunnel_x]
+    type = 'Exodiff'
+    input = 'HM_tunnel_x.i'
+    exodiff = 'HM_tunnel_x_out.e HM_tunnel_x_out.e-s002 HM_tunnel_x_out.e-s003'
+    requirement = 'Test of purely elastic behaviour of opalinus clay for a tunnel.'
+  []
+[]
