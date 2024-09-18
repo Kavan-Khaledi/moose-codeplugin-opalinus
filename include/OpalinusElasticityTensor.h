@@ -20,7 +20,7 @@
  * OpalinusElasticityTensor defines an elasticity tensor material object with a given base name.
  */
 
-class OpalinusElasticityTensor: public Material
+class OpalinusElasticityTensor : public Material
 {
 public:
   static InputParameters validParams();
@@ -28,7 +28,7 @@ public:
   OpalinusElasticityTensor(const InputParameters & parameters);
 
 protected:
-   void computeQpProperties() override;
+  void computeQpProperties() override;
 
   /// Individual material information
   const std::string _base_name;
@@ -46,7 +46,4 @@ protected:
   MaterialProperty<std::vector<Real>> & _first_local_axis;
   MaterialProperty<std::vector<Real>> & _second_local_axis;
   MaterialProperty<std::vector<Real>> & _normal_local_axis;
- 
 };
-
-

@@ -11,8 +11,6 @@
 
 #include "ScalarDamageBase.h"
 
-
-
 /**
  * Scalar damage model for which the damage is prescribed by another material
  */
@@ -28,14 +26,13 @@ protected:
   const MaterialProperty<RankTwoTensor> & _total_strain;
   ///@{ Material property that provides the damage index
   const MaterialProperty<std::vector<Real>> & _intnl;
-  //const MaterialProperty<Real> & _dam_cri;
+  // const MaterialProperty<Real> & _dam_cri;
   /// Rotation increment material property
   ///@}
-   const Real _pd1;
+  const Real _pd1;
   const Real _pd2;
   const Real _pd3;
   const Real _pd4;
   const Real _omega;
   const VariableValue & _nonlocal_var;
-
 };

@@ -3,7 +3,6 @@
 #include "Kernel.h"
 //
 
-
 /**
  * This kernel implements the Laplacian operator:
  * $\nabla u \cdot \nabla \phi_i$
@@ -16,15 +15,12 @@ public:
   ImplicitNonlocal(const InputParameters & parameters);
 
 private:
- Real _length_scale;
-
-
+  Real _length_scale;
 
 protected:
+  const MaterialProperty<std::vector<Real>> & _intnl;
 
- const MaterialProperty<std::vector<Real>> & _intnl;
- 
- const MaterialProperty<RankTwoTensor> & _plastic_strain;
+  const MaterialProperty<RankTwoTensor> & _plastic_strain;
   const MaterialProperty<RankTwoTensor> & _total_strain;
 
   virtual Real computeQpResidual() override;

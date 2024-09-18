@@ -48,5 +48,4 @@ protected:
   RankTwoTensor _rotation_s1;
   RankTwoTensor _rotation_s2;
   RankTwoTensor _rotation_s3;
-
 };

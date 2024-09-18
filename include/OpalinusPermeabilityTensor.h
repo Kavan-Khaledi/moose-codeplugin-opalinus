@@ -28,9 +28,9 @@ public:
 
 protected:
   void computeQpProperties() override;
-   MaterialProperty<RealTensorValue> & _permeability_qp;
-   MaterialProperty<std::vector<RealTensorValue>> & _dpermeability_qp_dvar;
-   MaterialProperty<std::vector<std::vector<RealTensorValue>>> & _dpermeability_qp_dgradvar;
+  MaterialProperty<RealTensorValue> & _permeability_qp;
+  MaterialProperty<std::vector<RealTensorValue>> & _dpermeability_qp_dvar;
+  MaterialProperty<std::vector<std::vector<RealTensorValue>>> & _dpermeability_qp_dgradvar;
   /// Constant value of permeability tensor
   RealTensorValue _input_permeability;
   RealVectorValue _geological_angles;
@@ -40,8 +40,4 @@ protected:
   const Real _k_s;
   /// prefactor function to multiply the permeability tensor with
   const Function & _prefactor_f;
-
- 
 };
-
-

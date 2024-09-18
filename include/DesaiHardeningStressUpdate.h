@@ -1,4 +1,5 @@
-//PerfectlyPlastic Desai Model beta1=0.0 beta=0.0 alfa=0.0 The model is basically equivalent to Drucker-Prager model
+// PerfectlyPlastic Desai Model beta1=0.0 beta=0.0 alfa=0.0 The model is basically equivalent to
+// Drucker-Prager model
 
 #pragma once
 
@@ -39,7 +40,7 @@ protected:
   const Real _n0;
   const Real _kesi0;
   const VariableValue & _nonlocal_var;
-  const Real  _gamar;
+  const Real _gamar;
   const Real _dam_I;
   const Real _dam_A;
   const Real _dam_F;
@@ -49,13 +50,13 @@ protected:
 
   /// Old value of plastic strain
   const MaterialProperty<Real> & _alfa_old;
-  
-    /// plastic strain
+
+  /// plastic strain
   MaterialProperty<Real> & _gama;
 
   /// Old value of plastic strain
   const MaterialProperty<Real> & _gama_old;
-      /// plastic strain
+  /// plastic strain
   MaterialProperty<Real> & _gama0;
 
   /// Old value of plastic strain
@@ -118,22 +119,19 @@ protected:
                                           bool compute_full_tangent_operator,
                                           const std::vector<std::vector<Real>> & dvar_dtrial,
                                           RankFourTensor & cto) override;
-                                          
-virtual void compute_dg(const std::vector<Real> & stress_params,
-                                             const std::vector<Real> & intnl,
-                                             std::vector<Real> & dgg) const;
-virtual void compute_df(const std::vector<Real> & stress_params,
-                                             const std::vector<Real> & intnl,
-                                             std::vector<Real> & dff) const;
-virtual void setGamaValue(const std::vector<Real> & stress_params,
-                                                  Real & gama) const;
 
-virtual void compute_d2g(const std::vector<Real> & stress_params,
-                                             const std::vector<Real> & intnl,
-                                              std::vector<std::vector<Real>> & d2gg) const;
-virtual void  setGamaDamage(const Real & gama0,Real & gama) const;
+  virtual void compute_dg(const std::vector<Real> & stress_params,
+                          const std::vector<Real> & intnl,
+                          std::vector<Real> & dgg) const;
+  virtual void compute_df(const std::vector<Real> & stress_params,
+                          const std::vector<Real> & intnl,
+                          std::vector<Real> & dff) const;
+  virtual void setGamaValue(const std::vector<Real> & stress_params, Real & gama) const;
+
+  virtual void compute_d2g(const std::vector<Real> & stress_params,
+                           const std::vector<Real> & intnl,
+                           std::vector<std::vector<Real>> & d2gg) const;
+  virtual void setGamaDamage(const Real & gama0, Real & gama) const;
 
 private:
-
-
 };
