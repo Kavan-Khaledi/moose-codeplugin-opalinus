@@ -4,7 +4,7 @@
 #pragma once
 
 #include "MultiParameterPlasticityStressUpdate.h"
-#include "TensorMechanicsHardeningModel.h"
+#include "SolidMechanicsHardeningModel.h"
 #include <cmath>
 #include "libmesh/libmesh.h"
 
