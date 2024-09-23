@@ -44,10 +44,10 @@ OpalinusPermeabilityTensor::OpalinusPermeabilityTensor(const InputParameters & p
         declareProperty<std::vector<RealTensorValue>>("dPorousFlow_permeability_qp_dvar")),
     _dpermeability_qp_dgradvar(declareProperty<std::vector<std::vector<RealTensorValue>>>(
         "dPorousFlow_permeability_qp_dgradvar")),
-    _prefactor_f(getFunction("permeability_tensor_prefactor")),
-    _k_s(parameters.get<Real>("permeability_normal")),
+    _geological_angles(getParam<Real>("dip_direction"), getParam<Real>("dip")),
     _k_p(parameters.get<Real>("permeability_parallel")),
-    _geological_angles(getParam<Real>("dip_direction"), getParam<Real>("dip"))
+    _k_s(parameters.get<Real>("permeability_normal")),
+    _prefactor_f(getFunction("permeability_tensor_prefactor"))
 {
 
   _unrotated_permeability = RankTwoTensor(_k_p, 0, 0, 0, _k_p, 0, 0, 0, _k_s);

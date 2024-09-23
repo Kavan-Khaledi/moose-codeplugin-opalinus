@@ -32,18 +32,20 @@ protected:
 
   /// Individual material information
   const std::string _base_name;
-  std::string _elasticity_tensor_name;
+  const std::string _elasticity_tensor_name;
   MaterialProperty<RankFourTensor> & _elasticity_tensor;
   const Function * const _prefactor_function;
-  RankFourTensor _Cijkl;
-  RealVectorValue _geological_angles;
-  RankTwoTensor _geological_rotation;
   const Real _Ep;
   const Real _Es;
   const Real _nu_p;
   const Real _nu_s;
   const Real _G_s;
+  const RealVectorValue _geological_angles;
+
   MaterialProperty<std::vector<Real>> & _first_local_axis;
   MaterialProperty<std::vector<Real>> & _second_local_axis;
   MaterialProperty<std::vector<Real>> & _normal_local_axis;
+
+  RankFourTensor _Cijkl;
+  RankTwoTensor _geological_rotation;
 };
