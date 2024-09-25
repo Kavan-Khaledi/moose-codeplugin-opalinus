@@ -3,6 +3,7 @@
   [HM_tunnel_x]
     type = 'Exodiff'
     input = 'HM_tunnel_x.i'
+    # heavy = 'true'
     exodiff = 'HM_tunnel_x_out.e HM_tunnel_x_out.e-s002'
     exodiff_opts = '-pedantic'
     requirement = 'Test of purely elastic behaviour of opalinus clay for a tunnel.'

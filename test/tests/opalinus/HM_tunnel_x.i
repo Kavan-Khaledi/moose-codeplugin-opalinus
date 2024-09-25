@@ -381,11 +381,12 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
 
 # Local coordinate systems (material and initial stress)
 [UserObjects]
-  #[ucsInitialStress]
-  #  type = CartesianLocalCoordinateSystem
-  #  e1 = '1 0 0'
-  #  e2 = '0 1 0'
-  #[]
+  [ucsInitialStress]
+    type = CartesianLocalCoordinateSystem
+    e1 = '0 1 0'  # trend_s1 = 0;  plunge_s1 = 90
+    e2 = '0 0 1'  # trend_s2 = 90; plunge_s2 = 0
+    # e3: trend_s3 = 0; plunge_s3 = 0
+  []
   [ucsOpalinusMaterial]
     type = CartesianLocalCoordinateSystem
     dip_direction_degree = '90'
@@ -512,19 +513,15 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   []
 
   [ini_stress]
-    type = OpalinusEigenstrainFromInitialStress
+    type = ComputeEigenstrainFromGeostaticInitialStress
     block = '${active_block_names}'
-    eigenstrain_name = ini_stress
+    eigenstrain_name = 'ini_stress'
+    local_coordinate_system = 'ucsInitialStress'
     principal_stress_1 = 4.5
-    trend_s1 = 0
-    plunge_s1 = 90
     principal_stress_2 = 2.5
-    trend_s2 = 90
-    plunge_s2 = 0
     principal_stress_3 = 0.7
-    trend_s3 = 0
-    plunge_s3 = 0
   []
+
 []
 
 [UserObjects]
