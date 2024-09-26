@@ -1,0 +1,21 @@
+[Tests]
+  issues = '#1'
+  [geostatic_initial_stress_unrotated]
+    type = 'Exodiff'
+    input = 'geostatic_initial_stress_unrotated.i'
+    exodiff = 'geostatic_initial_stress_unrotated_out.e'
+    requirement = 'Gererates an anisotropic geostatic initial stress field.'
+  []
+  [geostatic_initial_stress_rotated_1]
+    type = 'Exodiff'
+    input = 'geostatic_initial_stress_rotated_1.i'
+    exodiff = 'geostatic_initial_stress_rotated_1_out.e'
+    requirement = 'Gererates a rotated anisotropic geostatic initial stress field.'
+  []
+  [geostatic_initial_stress_unrotated_inc]
+    type = 'Exodiff'
+    input = 'geostatic_initial_stress_unrotated_inc.i'
+    exodiff = 'geostatic_initial_stress_unrotated_inc_out.e'
+    requirement = 'Gererates a rotated anisotropic geostatic initial stress field.'
+  []
+[]

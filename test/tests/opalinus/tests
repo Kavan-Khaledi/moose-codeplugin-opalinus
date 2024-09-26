@@ -1,9 +1,16 @@
 [Tests]
   issues = '#1'
+  [bi_axial]
+    type = 'Exodiff'
+    heavy = 'true'
+    input = 'bi-axial.i'
+    exodiff = 'bi-axial_out.e'
+    requirement = 'Bi-axial loading of a cube.'
+  []
   [HM_tunnel_x]
     type = 'Exodiff'
+    heavy = 'true'
     input = 'HM_tunnel_x.i'
-    # heavy = 'true'
     exodiff = 'HM_tunnel_x_out.e HM_tunnel_x_out.e-s002'
     exodiff_opts = '-pedantic'
     requirement = 'Test of purely elastic behaviour of opalinus clay for a tunnel.'
