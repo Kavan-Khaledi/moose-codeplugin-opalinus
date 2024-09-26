@@ -9,6 +9,7 @@
 
 #include "OpalinusPermeabilityTensor.h"
 #include "Function.h"
+#include "CartesianLocalCoordinateSystem.h"
 
 registerMooseObject(MOOSEAPPNAME, OpalinusPermeabilityTensor);
 
@@ -19,72 +20,69 @@ OpalinusPermeabilityTensor::validParams()
 
   params.addClassDescription(
       "This Material calculates the permeability tensor assuming it is constant");
+
+  params.addRequiredParam<UserObjectName>(
+      "local_coordinate_system", "The UserObject that defines the local coordinate system. ");
+
+  params.addRequiredParam<Real>(
+      "permeability1",
+      "Permeability in direction of the 'e1' axis of the coordinate system given by "
+      "'local_coordinate_system' in unit LE² (e.g. m²). "
+      "If the plane e1-e2 of the local coordinate system is representing the bedding, "
+      "than this permeability controls flow parallel to this bedding "
+      "(in this case for Opalinus, this corresponds to permeability of the P-samples)");
+  params.addRequiredParam<Real>(
+      "permeability2",
+      "Permeability in direction of the 'e2' axis of the coordinate system given by "
+      "'local_coordinate_system' in unit LE² (e.g. m²). "
+      "If the plane e1-e2 of the local coordinate system is representing the bedding, "
+      "than this permeability controls flow parallel to this bedding "
+      "(in this case for Opalinus, this corresponds to permeability of the P-samples)");
+  params.addRequiredParam<Real>(
+      "permeability3",
+      "Permeability in direction of the 'e3' axis of the coordinate system given by "
+      "'local_coordinate_system' in unit LE² (e.g. m²). "
+      "If the plane e1-e2 of the local coordinate system is representing the bedding, "
+      "than this permeability controls flow normal to this bedding "
+      "(in this case for Opalinus, this corresponds to permeability of the S-samples)");
+
   params.addParam<FunctionName>(
       "permeability_tensor_prefactor",
-      "1.0",
       "Optional function to use as a scalar prefactor on the permeability tensor.");
-  params.addParam<Real>("dip_direction",
-                        0.0,
-                        "clock_wise rotation around z-axis. The y-axis is assumed to point NORTH");
-  params.addParam<Real>(
-      "dip",
-      0.0,
-      "counter clock-wise rotation around x-axis. The y-axis is assumed to point NORTH");
-  params.addRequiredParam<Real>("permeability_parallel",
-                                "Permeability of P-sample (flow parallel to bedding), unit m2");
-  params.addRequiredParam<Real>("permeability_normal",
-                                "Permeability S-sample (loading normal to bedding), unit m2");
+
   return params;
 }
 
 OpalinusPermeabilityTensor::OpalinusPermeabilityTensor(const InputParameters & parameters)
   : Material(parameters),
+    _localCoordinateSystem(
+        getUserObject<CartesianLocalCoordinateSystem>("local_coordinate_system")),
+    _permeability1(parameters.get<Real>("permeability1")),
+    _permeability2(parameters.get<Real>("permeability2")),
+    _permeability3(parameters.get<Real>("permeability3")),
+    _prefactor_function(isParamValid("permeability_tensor_prefactor")
+                            ? &getFunction("permeability_tensor_prefactor")
+                            : nullptr),
     _permeability_qp(declareProperty<RealTensorValue>("PorousFlow_permeability_qp")),
     _dpermeability_qp_dvar(
         declareProperty<std::vector<RealTensorValue>>("dPorousFlow_permeability_qp_dvar")),
     _dpermeability_qp_dgradvar(declareProperty<std::vector<std::vector<RealTensorValue>>>(
-        "dPorousFlow_permeability_qp_dgradvar")),
-    _geological_angles(getParam<Real>("dip_direction"), getParam<Real>("dip")),
-    _k_p(parameters.get<Real>("permeability_parallel")),
-    _k_s(parameters.get<Real>("permeability_normal")),
-    _prefactor_f(getFunction("permeability_tensor_prefactor"))
+        "dPorousFlow_permeability_qp_dgradvar"))
 {
-
-  _unrotated_permeability = RankTwoTensor(_k_p, 0, 0, 0, _k_p, 0, 0, 0, _k_s);
-  const Real phi_1 = -1.0 * _geological_angles(0) * (libMesh::pi / 180.0);
-  const Real Phi = _geological_angles(1) * (libMesh::pi / 180.0);
-  const Real c1 = std::cos(phi_1);
-  const Real c2 = std::cos(Phi);
-  const Real s1 = std::sin(phi_1);
-  const Real s2 = std::sin(Phi);
-
-  _geological_rotation(0, 0) = c1;
-  _geological_rotation(1, 0) = s1;
-  _geological_rotation(2, 0) = 0.0;
-  _geological_rotation(0, 1) = -c2 * s1;
-  _geological_rotation(1, 1) = c1 * c2;
-  _geological_rotation(2, 1) = s2;
-  _geological_rotation(0, 2) = s1 * s2;
-  _geological_rotation(1, 2) = -c1 * s2;
-  _geological_rotation(2, 2) = c2;
-
-  _unrotated_permeability.rotate(_geological_rotation);
-  _input_permeability = RealTensorValue(_unrotated_permeability(0, 0),
-                                        _unrotated_permeability(0, 1),
-                                        _unrotated_permeability(0, 2),
-                                        _unrotated_permeability(1, 0),
-                                        _unrotated_permeability(1, 1),
-                                        _unrotated_permeability(1, 2),
-                                        _unrotated_permeability(2, 0),
-                                        _unrotated_permeability(2, 1),
-                                        _unrotated_permeability(2, 2));
+  // create permeability tensor in local coordinates (unrotated)
+  // and then rotate it to global coordinates
+  _input_permeability =
+      RankTwoTensor(_permeability1, 0, 0, 0, _permeability2, 0, 0, 0, _permeability3);
+  _localCoordinateSystem.rotateLocalToGlobal(&_input_permeability);
 }
 
 void
 OpalinusPermeabilityTensor::computeQpProperties()
 {
-
-  _permeability_qp[_qp] = _input_permeability;
-
-  _permeability_qp[_qp] *= _prefactor_f.value(_t, _q_point[_qp]);
+  if (_prefactor_function)
+  {
+    _permeability_qp[_qp] = _input_permeability * _prefactor_function->value(_t, _q_point[_qp]);
+  }
+  else
+    _permeability_qp[_qp] = _input_permeability;
 }

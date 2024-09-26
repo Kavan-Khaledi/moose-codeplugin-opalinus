@@ -443,10 +443,10 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   [rock_permeability_bulk]
     type = OpalinusPermeabilityTensor
     block = '${RockVolumes}'
-    permeability_parallel = 1e-19
-    permeability_normal = 1e-21
-    dip_direction = 90
-    dip = 35
+    permeability1 = 1e-19
+    permeability2 = 1e-19
+    permeability3 = 1e-21
+    local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
   [rock_elasticity_tensor]
@@ -463,11 +463,11 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   [tunnel01_permeability_bulk]
     type = OpalinusPermeabilityTensor
     block = 'tunnel01'
-    permeability_parallel = 1e-19
-    permeability_normal = 1e-21
+    permeability1 = 1e-19
+    permeability2 = 1e-19
+    permeability3 = 1e-21
     permeability_tensor_prefactor = tunnel01_permeability_prefactor
-    dip_direction = 90
-    dip = 35
+    local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
   [tunnel01_elasticity_tensor]
@@ -485,11 +485,11 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   [tunnelXX_permeability_bulk]
     type = OpalinusPermeabilityTensor
     block = 'tunnel02 tunnel03 tunnel04 tunnel05 tunnel06 tunnel07 tunnel08 tunnel09 tunnel10 tunnel11 tunnel12 tunnel13 tunnel14 tunnel15 tunnel16 tunnel17 tunnel18 tunnel19 tunnel20'
-    permeability_parallel = 1e-19
-    permeability_normal = 1e-21
+    permeability1 = 1e-19
+    permeability2 = 1e-19
+    permeability3 = 1e-21
     #permeability_tensor_prefactor = permeability_prefactor_method1
-    dip_direction = 90
-    dip = 35
+    local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
   [tunnelXX_elasticity_tensor]
