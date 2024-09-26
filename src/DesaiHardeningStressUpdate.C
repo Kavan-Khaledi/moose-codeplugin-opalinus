@@ -4,6 +4,7 @@
 #include "DesaiHardeningStressUpdate.h"
 #include "libmesh/utility.h"
 #include "ElasticityTensorTools.h"
+#include "CartesianLocalCoordinateSystem.h"
 
 registerMooseObject(MOOSEAPPNAME, DesaiHardeningStressUpdate);
 
@@ -12,19 +13,23 @@ DesaiHardeningStressUpdate::validParams()
 {
   InputParameters params = MultiParameterPlasticityStressUpdate::validParams();
 
+  params.addClassDescription("Compute stress for Non-associated Plasticity for Geomaterials");
+
   params.addParam<bool>("perfect_guess",
                         true,
                         "Provide a guess to the Newton-Raphson procedure "
                         "that is the result from perfect plasticity.  With "
                         "severe hardening/softening this may be "
                         "suboptimal.");
-  params.addClassDescription("Compute stress for Non-associated Plasticity for Geomaterials");
   // params.addRequiredParam<Real>("yield_slop_pq", "yield_slop_pq"); //
   params.addRequiredParam<Real>("gama_mean", "gama_mean");
   params.addParam<Real>("parameter_omega_1", 0.0, "parameter_omega_1");
   params.addParam<Real>("parameter_b_1", 0.0, "parameter_b_1");
-  params.addParam<Real>("dip", 0.0, "dip");
-  params.addParam<Real>("strike", 0.0, "strike");
+  params.addRequiredParam<UserObjectName>(
+      "local_coordinate_system",
+      "The UserObject that defines the local coordinate system. "
+      "The local axis e1 and e2 of this coordinate system are considered in plane while "
+      "the local axis e3 is assumed to be 'normal'.");
   params.addParam<Real>("psi_to_phi", 1.0, "psi_to_phi");  //
   params.addRequiredParam<Real>("p_tensile", "p_tensile"); //
   params.addRequiredRangeCheckedParam<Real>(
@@ -63,8 +68,8 @@ DesaiHardeningStressUpdate::DesaiHardeningStressUpdate(const InputParameters & p
     _mean_gama(parameters.get<Real>("gama_mean")),
     _omega1(getParam<Real>("parameter_omega_1")),
     _b1(getParam<Real>("parameter_b_1")),
-    _dip(getParam<Real>("dip")),
-    _strike(getParam<Real>("strike")),
+    _localCoordinateSystem(
+        getUserObject<CartesianLocalCoordinateSystem>("local_coordinate_system")),
     _a0(getParam<Real>("hardening_a0")),
     _eta(getParam<Real>("hardening_eta")),
     _n0(getParam<Real>("parameter_n0")),
@@ -121,9 +126,7 @@ DesaiHardeningStressUpdate::d2stress_param_dstress(const RankTwoTensor & stress)
 
   std::vector<RankFourTensor> d2(_num_sp);
   for (unsigned i = 0; i < _num_sp; ++i)
-  {
     d2[i] = RankFourTensor();
-  }
   return d2;
 }
 
@@ -143,10 +146,12 @@ DesaiHardeningStressUpdate::preReturnMapV(const std::vector<Real> & /*trial_stre
   stress_params[5] = stress_trial(1, 2);
   stress_params[4] = stress_trial(0, 2);
   stress_params[3] = stress_trial(0, 1);
+
   if (_t_step < 2)
   {
-    _gama0[_qp] = _mean_gama / std::sqrt(27.0);
-    _gama[_qp] = _mean_gama / std::sqrt(27.0);
+    const auto denom = std::sqrt(27.0);
+    _gama0[_qp] = _mean_gama / denom;
+    _gama[_qp] = _mean_gama / denom;
   }
   else
   {
@@ -202,25 +207,15 @@ DesaiHardeningStressUpdate::yieldFunctionValuesV(const std::vector<Real> & stres
   {
     j3 = 0.0;
     j2 = 1e-8;
+    // @Kavan-Khaledi do we have to update 'q' as well?
   }
-  Real sr = cof * j3 / std::pow(j2, 1.5);
-  if (sr > 1.0)
-  {
-    sr = 1.0;
-  }
-  if (sr < -1.0)
-  {
-    sr = -1.0;
-  }
-  Real fs = 1.0;
+  Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
 
   _alfa[_qp] = _a0;
   if (_t_step < 2)
-  {
     _alfa[_qp] = _a0;
-  }
   else
   {
     setGamaValue(stress_params, _gama0[_qp]);
@@ -255,26 +250,19 @@ DesaiHardeningStressUpdate::computeAllQV(const std::vector<Real> & stress_params
   const Real cof = std::sqrt(27.0) / 2.0;
   const Real i1 = std::max(1e-7, -(stress_now.trace()) + 3.0 * _St);
   Real j2 = stress_now.secondInvariant();
-  Real q = std::pow(stress_now.secondInvariant(), 0.5);
+  Real q = std::pow(j2, 0.5);
 
   Real j3 = stress_now.thirdInvariant();
   if (j2 < 1e-8)
   {
     j3 = 0.0;
     j2 = 1e-8;
+    // @Kavan-Khaledi do we have to update 'q' as well?
   }
-  Real sr = cof * j3 / std::pow(j2, 1.5);
-  if (sr > 1.0)
-  {
-    sr = 1.0;
-  }
-  if (sr < -1.0)
-  {
-    sr = -1.0;
-  }
-  Real fs = 1.0;
 
-  fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
+
+  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
 
   _alfa[_qp] = _a0;
   if (_t_step < 2)
@@ -385,15 +373,12 @@ DesaiHardeningStressUpdate::computeAllQV(const std::vector<Real> & stress_params
   all_q[0].dg[4] = 2.0 * (dgdi1 * di1ds[4] + dgdj2 * dj2ds[4] + dgdj3 * dj3ds[4]);
   all_q[0].dg[5] = 2.0 * (dgdi1 * di1ds[5] + dgdj2 * dj2ds[5] + dgdj3 * dj3ds[5]);
 
+  // @Kavan-Khaledi so dalfa_di is always Zero?
   Real dalfa_di = -(_a0 / _eta) * std::exp(-1.0 * intnl[0] / _eta);
   if (_t_step < 2)
-  {
     dalfa_di = 0.0; //-(_a0/_eta)*std::exp(-1.0*intnl[0]/_eta);
-  }
   else
-  {
     dalfa_di = 0.0; //-(_a0/_eta)*std::exp(-1.0*intnl[0]/_eta);
-  }
 
   const Real dfb_dalfa = -std::pow(i1, _n0) / (2.0 * fb);
   const Real dfbg_dalfa = -std::pow(i1, _n0) / (2.0 * fbg);
@@ -538,27 +523,19 @@ DesaiHardeningStressUpdate::computeAllQV(const std::vector<Real> & stress_params
     d2gj2ds[i] = d2gdi1j2 * di1ds[i] + d2gdj2j2 * dj2ds[i] + d2gdj2j3 * dj3ds[i];
     d2gj3ds[i] = d2gdi1j3 * di1ds[i] + d2gdj2j3 * dj2ds[i] + d2gdj3j3 * dj3ds[i];
     for (unsigned j = 0; j < _num_sp; ++j)
-    {
       all_q[0].d2g[i][j] = d2gi1ds[i] * di1ds[j] + d2gj2ds[i] * dj2ds[j] + d2gj3ds[i] * dj3ds[j] +
                            dgdj2 * d2j2ds[i][j] + dgdj3 * d2j3ds[i][j];
-    }
   }
 
   for (unsigned yf = 0; yf < _num_yf; ++yf)
     for (unsigned a = 0; a < _num_sp; ++a)
       for (unsigned b = 0; b < _num_sp; ++b)
         if (a < 3 && b < 3)
-        {
           all_q[yf].d2g[a][b] = all_q[yf].d2g[a][b];
-        }
         else if (a >= 3 && b >= 3)
-        {
           all_q[yf].d2g[a][b] = 4.0 * all_q[yf].d2g[a][b];
-        }
         else
-        {
           all_q[yf].d2g[a][b] = 2.0 * all_q[yf].d2g[a][b];
-        }
 
   //   if(j2<=1e-8)
   //   {
@@ -631,19 +608,15 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
   // Real _gamaq = _psi_to_phi * _gama[_qp];
 
   if (_t_step < 2)
-  {
     _alfa[_qp] = _a0;
-  }
   else
-  {
     _alfa[_qp] = _a0 * std::exp(-1.0 * intnl_old[0] / _eta);
-  }
+
   if (!_perfect_guess)
   {
     for (unsigned i = 0; i < _num_sp; ++i)
-    {
       stress_params[i] = trial_stress_params[i];
-    }
+
     gaE = 0.0;
   }
   else
@@ -670,18 +643,10 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
       j2_trial = 1e-8;
     }
     const Real cof = std::sqrt(27.0) / 2.0;
-    Real sr = cof * j3_trial / std::pow(j2_trial, 1.5);
-    if (sr > 1.0)
-    {
-      sr = 1.0;
-    }
-    if (sr < -1.0)
-    {
-      sr = -1.0;
-    }
-    Real fs_trial = 1.0;
 
-    fs_trial = std::pow(std::exp(_betta1 * i1_trial) + _beta * sr, _mv);
+    Real sr = std::clamp(cof * j3_trial / std::pow(j2_trial, 1.5), -1.0, +1.0);
+
+    Real fs_trial = std::pow(std::exp(_betta1 * i1_trial) + _beta * sr, _mv);
 
     const Real fb_trial = std::pow(std::pow(_gama[_qp], 2.0) * std::pow(i1_trial, 2.0) -
                                        _alfa[_qp] * std::pow(i1_trial, _n0),
@@ -693,13 +658,10 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
 
     Real dalfa_di = -(_a0 / _eta) * std::exp(-1.0 * intnl[0] / _eta);
     if (_t_step < 2)
-    {
       dalfa_di = -(_a0 / _eta) * std::exp(-1.0 * intnl[0] / _eta);
-    }
+
     else
-    {
       dalfa_di = -(_a0 / _eta) * std::exp(-1.0 * intnl[0] / _eta);
-    }
 
     const Real df_di = (-dfb_dalfa * fs_trial) * dalfa_di;
 
@@ -708,9 +670,8 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
     if (trial_desai_yf <= _f_tol)
     {
       for (unsigned i = 0; i < _num_sp; ++i)
-      {
         stress_params[i] = trial_stress_params[i];
-      }
+
       gaE = 0.0;
       found_solution = true;
     }
@@ -727,19 +688,18 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
       for (unsigned i = 0; i < _num_sp; ++i)
       {
         cdg[i] = 0.0;
+
         for (unsigned j = 0; j < _num_sp; ++j)
-        {
           cdg[i] += _Eij[i][j] * dg[j];
-        }
+
         fcg += cdg[i] * df[i];
       }
 
       const Real ga = trial_desai_yf / (fcg - df_di);
 
       for (unsigned i = 0; i < _num_sp; ++i)
-      {
         stress_params[i] = trial_stress_params[i] - ga * cdg[i];
-      }
+
       gaE = ga * (_Eij[0][0] + _Eij[1][1] + _Eij[2][2]);
       const RankTwoTensor stress_test = RankTwoTensor(stress_params[0],
                                                       stress_params[3],
@@ -757,17 +717,17 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
       {
 
         for (unsigned i = 0; i < _num_sp; ++i)
-        {
           stress_params[i] = trial_stress_params[i];
-        }
+
         gaE = 0.0;
-        //   stress_params[0]=_St-std::sqrt(_small_smoother2)/(3.0*_gama);
-        //  stress_params[1]=_St-std::sqrt(_small_smoother2)/(3.0*_gama);
-        //  stress_params[2]=_St-std::sqrt(_small_smoother2)/(3.0*_gama);
-        //  stress_params[3]=0.0;
-        //   stress_params[4]=0.0;
-        //   stress_params[5]=0.0;
-        //  gaE=(_Eij[0][0]+_Eij[1][1]+_Eij[2][2])*(trial_stress_params[0]-stress_params[0])/(_gamaq*(_Eij[0][0]+_Eij[1][1]+_Eij[2][2]));
+
+        // stress_params[0] = _St-std::sqrt(_small_smoother2) / (3.0 * _gama);
+        // stress_params[1] = _St-std::sqrt(_small_smoother2) / (3.0 * _gama);
+        // stress_params[2] = _St-std::sqrt(_small_smoother2) / (3.0 * _gama);
+        // stress_params[3] = 0.0;
+        // stress_params[4] = 0.0;
+        // stress_params[5] = 0.0;
+        // gaE=(_Eij[0][0]+_Eij[1][1]+_Eij[2][2])*(trial_stress_params[0]-stress_params[0])/(_gamaq*(_Eij[0][0]+_Eij[1][1]+_Eij[2][2]));
       }
       found_solution = true;
     }
@@ -789,17 +749,15 @@ DesaiHardeningStressUpdate::setIntnlValuesV(const std::vector<Real> & trial_stre
   std::vector<Real> dg(_num_sp);
   compute_dg(current_stress_params, intnl_old, dg);
 
-  Real lamdaF = 0.0;
-  lamdaF = std::pow(dg[0], 2.0) + std::pow(dg[1], 2.0) + std::pow(dg[2], 2.0) +
-           0.5 * std::pow(dg[3], 2.0) + 0.5 * std::pow(dg[4], 2.0) + 0.5 * std::pow(dg[5], 2.0);
+  const Real lamdaF = std::pow(dg[0], 2.0) + std::pow(dg[1], 2.0) + std::pow(dg[2], 2.0) +
+                      0.5 * std::pow(dg[3], 2.0) + 0.5 * std::pow(dg[4], 2.0) +
+                      0.5 * std::pow(dg[5], 2.0);
 
   for (unsigned i = 0; i < _num_sp; ++i)
   {
     cp3[i] = 0.0;
     for (unsigned j = 0; j < _num_sp; ++j)
-    {
       cp3[i] += _Eij[i][j] * dg[j];
-    }
   }
 
   intnl[0] = intnl_old[0] +
@@ -828,9 +786,7 @@ DesaiHardeningStressUpdate::setIntnlDerivativesV(const std::vector<Real> & trial
   {
     cp3[i] = 0.0;
     for (unsigned j = 0; j < _num_sp; ++j)
-    {
       cp3[i] += _Eij[i][j] * dg[j];
-    }
   }
 
   std::vector<std::vector<Real>> d2g(_num_sp, std::vector<Real>(_num_sp));
@@ -840,9 +796,7 @@ DesaiHardeningStressUpdate::setIntnlDerivativesV(const std::vector<Real> & trial
   {
     cd2g[i] = 0.0;
     for (unsigned j = 0; j < _num_sp; ++j)
-    {
       cd2g[i] += _Eij[i][j] * d2g[j][i];
-    }
   }
 
   for (std::size_t i = 0; i < _num_sp; ++i)
@@ -901,18 +855,12 @@ DesaiHardeningStressUpdate::consistentTangentOperatorV(
   {
     j3 = 0.0;
     j2 = 1e-8;
+    // @Kavan-Khaledi do we have to update 'q' as well?
   }
-  Real sr = cof * j3 / std::pow(j2, 1.5);
-  if (sr > 1.0)
-  {
-    sr = 1.0;
-  }
-  if (sr < -1.0)
-  {
-    sr = -1.0;
-  }
-  Real fs = 1.0;
-  fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+
+  Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
+
+  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
 
   if (_t_step < 2)
   {
@@ -964,13 +912,9 @@ DesaiHardeningStressUpdate::consistentTangentOperatorV(
 
   Real dalfa_di = -(_a0 / _eta) * std::exp(-1.0 * _intnl[_qp][0] / _eta);
   if (_t_step < 2)
-  {
     dalfa_di = -(_a0 / _eta) * std::exp(-1.0 * _intnl[_qp][0] / _eta);
-  }
   else
-  {
     dalfa_di = -(_a0 / _eta) * std::exp(-1.0 * _intnl[_qp][0] / _eta);
-  }
 
   const Real df_di = (-dfb_dalfa * fs) * dalfa_di;
 
@@ -1035,17 +979,13 @@ DesaiHardeningStressUpdate::consistentTangentOperatorV(
     for (unsigned j = 0; j < _tensor_dimensionality; ++j)
       for (unsigned k = 0; k < _tensor_dimensionality; ++k)
         for (unsigned l = 0; l < _tensor_dimensionality; ++l)
-        {
           cdgdsig(i, j) += inv(i, j, k, l) * dFdsig(k, l);
-        }
 
   for (unsigned i = 0; i < _tensor_dimensionality; ++i)
     for (unsigned j = 0; j < _tensor_dimensionality; ++j)
       for (unsigned k = 0; k < _tensor_dimensionality; ++k)
         for (unsigned l = 0; l < _tensor_dimensionality; ++l)
-        {
           temp(i, j) += inv(k, l, i, j) * dqdsig(k, l);
-        }
 
   gmatrix = cdgdsig / (dFdsig.doubleContraction(temp) - df_di);
 
@@ -1072,30 +1012,21 @@ DesaiHardeningStressUpdate::compute_dg(const std::vector<Real> & stress_params,
   const Real cof = std::sqrt(27.0) / 2.0;
   const Real i1 = std::max(1e-7, -(stress_now.trace()) + 3.0 * _St);
   Real j2 = stress_now.secondInvariant();
-  Real q = std::pow(stress_now.secondInvariant(), 0.5);
+  Real q = std::pow(j2, 0.5);
   Real j3 = stress_now.thirdInvariant();
   if (j2 < 1e-8)
   {
     j3 = 0.0;
     j2 = 1e-8;
+    // @Kavan-Khaledi do we have to update 'q' as well?
   }
-  Real sr = cof * j3 / std::pow(j2, 1.5);
-  if (sr > 1.0)
-  {
-    sr = 1.0;
-  }
-  if (sr < -1.0)
-  {
-    sr = -1.0;
-  }
-  Real fs = 1.0;
 
-  fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
+
+  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
 
   if (_t_step < 2)
-  {
     _alfa[_qp] = _a0;
-  }
   else
   {
     setGamaValue(stress_params, _gama0[_qp]);
@@ -1164,9 +1095,8 @@ DesaiHardeningStressUpdate::compute_dg(const std::vector<Real> & stress_params,
   const Real dgdj3 = -fbg * dfsdj3;
 
   for (unsigned a = 0; a < 3; ++a)
-  {
     dgg[a] = dgdi1 * di1ds[a] + dgdj2 * dj2ds[a] + dgdj3 * dj3ds[a];
-  }
+
   dgg[3] = 2.0 * (dgdi1 * di1ds[3] + dgdj2 * dj2ds[3] + dgdj3 * dj3ds[3]);
   dgg[4] = 2.0 * (dgdi1 * di1ds[4] + dgdj2 * dj2ds[4] + dgdj3 * dj3ds[4]);
   dgg[5] = 2.0 * (dgdi1 * di1ds[5] + dgdj2 * dj2ds[5] + dgdj3 * dj3ds[5]);
@@ -1192,31 +1122,21 @@ DesaiHardeningStressUpdate::compute_df(const std::vector<Real> & stress_params,
   const Real cof = std::sqrt(27.0) / 2.0;
   const Real i1 = std::max(1e-7, -(stress_now.trace()) + 3.0 * _St);
   Real j2 = stress_now.secondInvariant();
-  Real q = std::pow(stress_now.secondInvariant(), 0.5);
+  Real q = std::pow(j2, 0.5);
   Real j3 = stress_now.thirdInvariant();
   if (j2 < 1e-8)
   {
     j3 = 0.0;
     j2 = 1e-8;
-  }
-  Real sr = cof * j3 / std::pow(j2, 1.5);
-  if (sr > 1.0)
-  {
-    sr = 1.0;
-  }
-  if (sr < -1.0)
-  {
-    sr = -1.0;
+    // @Kavan-Khaledi do we have to update 'q' as well?
   }
 
-  Real fs = 1.0;
+  Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
 
   if (_t_step < 2)
-  {
     _alfa[_qp] = _a0;
-  }
   else
   {
     setGamaValue(stress_params, _gama0[_qp]);
@@ -1287,9 +1207,7 @@ DesaiHardeningStressUpdate::compute_df(const std::vector<Real> & stress_params,
   const Real dfdj3 = -fb * dfsdj3;
 
   for (unsigned a = 0; a < 3; ++a)
-  {
     dff[a] = dfdi1 * di1ds[a] + dfdj2 * dj2ds[a] + dfdj3 * dj3ds[a];
-  }
 
   dff[3] = 2.0 * (dfdi1 * di1ds[3] + dfdj2 * dj2ds[3] + dfdj3 * dj3ds[3]);
   dff[4] = 2.0 * (dfdi1 * di1ds[4] + dfdj2 * dj2ds[4] + dfdj3 * dj3ds[4]);
@@ -1314,37 +1232,23 @@ DesaiHardeningStressUpdate::setGamaValue(const std::vector<Real> & stress_params
   std::vector<Real> lamda(3);
   RankTwoTensor eigv = RankTwoTensor();
 
-  const Real dd = 3.14159 * _dip / 180.0;
-  const Real ss = 3.14159 * _strike / 180.0;
-
-  const Real c1 = std::cos(ss);
-  const Real c2 = std::cos(dd);
-
-  const Real s1 = std::sin(ss);
-  const Real s2 = std::sin(dd);
-
-  rotation(0, 0) = c1;  // R11
-  rotation(1, 0) = s1;  // R21
-  rotation(2, 0) = 0.0; // R31
-
-  rotation(0, 1) = -c2 * s1; // R12
-  rotation(1, 1) = c1 * c2;  // R22
-  rotation(2, 1) = s2;       // R32
-
-  rotation(0, 2) = s2 * s1;  // R13
-  rotation(1, 2) = -c1 * s2; // R23
-  rotation(2, 2) = c2;       // R33
+  // const auto e1 = _localCoordinateSystem.e1();
+  // const auto e2 = _localCoordinateSystem.e2();
+  const auto e3 = _localCoordinateSystem.e3();
 
   (stress_now).symmetricEigenvaluesEigenvectors(lamda, eigv);
-  const Real cosb =
-      eigv(0, 0) * rotation(0, 2) + eigv(1, 0) * rotation(1, 2) + eigv(2, 0) * rotation(2, 2);
-  // const Real sinb=std::sqrt(1.0-cosb*cosb);
-  // const Real cosa=eigv(0,1)*rotation(0,2)+eigv(1,1)*rotation(1,2)+eigv(2,1)*rotation(2,2);
-  // const Real sina=std::sqrt(1.0-cosa*cosa);
-  // const Real
-  // lv2=(pow(lamda[0],2.0)*pow(cosb,2.0)+pow(lamda[1],2.0)*pow(cosa,2.0)*pow(sinb,2.0)+pow(lamda[2],2.0)*pow(sina,2.0)*pow(sinb,2.0))
-  //              /(pow(lamda[0],2.0)+pow(lamda[1],2.0)+pow(lamda[2],2.0));
+
+  const Real cosb = eigv(0, 0) * e3(2) + eigv(1, 0) * e3(1) + eigv(2, 0) * e3(0);
+  // const Real sinb = std::sqrt(1.0-cosb*cosb);
+  // const Real cosa = eigv(0,1)*rotation(0,2)+eigv(1,1)*rotation(1,2)+eigv(2,1)*rotation(2,2);
+  // const Real sina = std::sqrt(1.0-cosa*cosa);
+
+  // const Real lv2 =
+  //   (pow(lamda[0], 2.0) * pow(cosb, 2.0) + pow(lamda[1], 2.0) * pow(cosa, 2.0) * pow(sinb, 2.0) +
+  //    pow(lamda[2], 2.0) * pow(sina, 2.0) * pow(sinb, 2.0)) /
+  //   (pow(lamda[0], 2.0) + pow(lamda[1], 2.0) + pow(lamda[2], 2.0));
   const Real lv2 = pow(cosb, 2.0);
+
   gama = (_mean_gama * (1.0 + _omega1 * (1.0 - 3.0 * lv2) +
                         _b1 * pow(_omega1, 2.0) * pow((1.0 - 3.0 * lv2), 2.0))) /
          std::sqrt(27.0);
@@ -1378,19 +1282,12 @@ DesaiHardeningStressUpdate::compute_d2g(const std::vector<Real> & stress_params,
   {
     j3 = 0.0;
     j2 = 1e-8;
+    // @Kavan-Khaledi do we have to update 'q' as well?
   }
-  Real sr = cof * j3 / std::pow(j2, 1.5);
-  if (sr > 1.0)
-  {
-    sr = 1.0;
-  }
-  if (sr < -1.0)
-  {
-    sr = -1.0;
-  }
-  Real fs = 1.0;
 
-  fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
+
+  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
 
   _alfa[_qp] = _a0;
   if (_t_step < 2)
@@ -1606,17 +1503,11 @@ DesaiHardeningStressUpdate::compute_d2g(const std::vector<Real> & stress_params,
     for (unsigned a = 0; a < _num_sp; ++a)
       for (unsigned b = 0; b < _num_sp; ++b)
         if (a < 3 && b < 3)
-        {
           d2gg[a][b] = d2gg[a][b];
-        }
         else if (a >= 3 && b >= 3)
-        {
           d2gg[a][b] = 4.0 * d2gg[a][b];
-        }
         else
-        {
           d2gg[a][b] = 2.0 * d2gg[a][b];
-        }
   return;
 }
 
@@ -1628,13 +1519,10 @@ DesaiHardeningStressUpdate::setGamaDamage(const Real & gama0, Real & gama) const
   Real softVar = _nonlocal_var[_qp];
 
   if (softVar < _dam_I)
-  {
     gama = gama0;
-  }
   else
-  {
     gama =
         _gamar + (gama0 - _gamar) * (exp(-1.0 * _dam_A * pow((softVar - _dam_I) / _dam_F, _dam_N)));
-  }
+
   return;
 }
