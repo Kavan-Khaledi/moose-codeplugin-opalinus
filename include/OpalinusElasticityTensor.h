@@ -47,13 +47,15 @@ protected:
   const CartesianLocalCoordinateSystem & _localCoordinateSystem;
 
   // Local copies of base vectors of the local coordinate system
-  RealVectorValue _e1;
-  RealVectorValue _e2;
-  RealVectorValue _e3;
+  std::vector<Real> _e1;
+  std::vector<Real> _e2;
+  std::vector<Real> _e3;
 
+  /// material properties for the local axis (for output)
   MaterialProperty<std::vector<Real>> & _first_local_axis;
   MaterialProperty<std::vector<Real>> & _second_local_axis;
   MaterialProperty<std::vector<Real>> & _normal_local_axis;
 
+  // variable holding Cijkl
   RankFourTensor _Cijkl;
 };

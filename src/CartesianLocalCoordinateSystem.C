@@ -12,7 +12,6 @@
 #include "RankTwoTensor.h"
 #include "RankFourTensor.h"
 #include "libmesh/point.h"
-#include "Conversion.h" // for stringify
 
 registerMooseObject(MOOSEAPPNAME, CartesianLocalCoordinateSystem);
 
@@ -141,15 +140,16 @@ CartesianLocalCoordinateSystem::CartesianLocalCoordinateSystem(const InputParame
   else
     mooseError("Unknown data source. Are you missing a parameter? Did you misspell one?");
 
-  // build rotation matrix global to local
+  // build rotation matrix global to local,
+  // which is the matrix with the unit vectors entered in rows
   _rotate_global_to_local(0, 0) = _e1(0);
-  _rotate_global_to_local(1, 0) = _e1(1);
-  _rotate_global_to_local(2, 0) = _e1(2);
-  _rotate_global_to_local(0, 1) = _e2(0);
+  _rotate_global_to_local(0, 1) = _e1(1);
+  _rotate_global_to_local(0, 2) = _e1(2);
+  _rotate_global_to_local(1, 0) = _e2(0);
   _rotate_global_to_local(1, 1) = _e2(1);
-  _rotate_global_to_local(2, 1) = _e2(2);
-  _rotate_global_to_local(0, 2) = _e3(0);
-  _rotate_global_to_local(1, 2) = _e3(1);
+  _rotate_global_to_local(1, 2) = _e2(2);
+  _rotate_global_to_local(2, 0) = _e3(0);
+  _rotate_global_to_local(2, 1) = _e3(1);
   _rotate_global_to_local(2, 2) = _e3(2);
 
   _rotate_local_to_global = _rotate_global_to_local.inverse();

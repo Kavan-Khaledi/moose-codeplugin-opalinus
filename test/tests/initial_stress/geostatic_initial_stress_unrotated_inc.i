@@ -1,5 +1,12 @@
 # Apply an initial stress that should be defined
-# by ComputeEigenstrainFromGeostaticInitialStress
+# by ComputeEigenstrainFromGeostaticInitialStress,
+# and do a transient step to check that nothing
+# happens.
+# For this test, the local coordinate system is
+# not rotated with respect to the global system.
+# Gravity is also active. Therefore the initial
+# stress field in the vertical direction is not
+# constant.
 
 [Mesh]
   type = GeneratedMesh
@@ -178,13 +185,6 @@
     boundary = 'front'
     value = 0
   []
-
-  # [Pressure]
-  #   [front]
-  #     boundary = front # zmax
-  #     function = 0 # Newtons
-  #   []
-  # []
 []
 
 # Local coordinate systems (material and initial stress)
@@ -212,9 +212,7 @@
     principal_stress_1 = 4.5
     principal_stress_2 = 2.5
     principal_stress_3 = 0.7
-    stress_1_increment_x = 0.0
-    stress_2_increment_y = 0.0
-    stress_3_increment_z = -0.25
+    stress_3_increment_z =  ${fparse 0.025 * -9.81} # density * gravity
   []
 
   [stress]

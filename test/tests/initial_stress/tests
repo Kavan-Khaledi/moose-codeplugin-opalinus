@@ -16,6 +16,12 @@
     type = 'Exodiff'
     input = 'geostatic_initial_stress_unrotated_inc.i'
     exodiff = 'geostatic_initial_stress_unrotated_inc_out.e'
-    requirement = 'Gererates a rotated anisotropic geostatic initial stress field.'
+    requirement = 'Gererates a unrotated anisotropic geostatic initial stress field and applies a stress gradient consistent with gravity.'
+  []
+  [geostatic_initial_stress_rotated_1_inc]
+    type = 'Exodiff'
+    input = 'geostatic_initial_stress_rotated_1_inc.i'
+    exodiff = 'geostatic_initial_stress_rotated_1_inc_out.e'
+    requirement = 'Gererates a rotated anisotropic geostatic initial stress field and applies a stress gradient consistent with gravity.'
   []
 []

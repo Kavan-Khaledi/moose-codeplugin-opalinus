@@ -162,8 +162,7 @@ ComputeEigenstrainFromGeostaticInitialStress::computeQpEigenstrain()
                                         0, s2, 0,
                                         0, 0, s3);
 
-    // _localCoordinateSystem.rotateLocalToGlobal(&initial_stress);
-    _localCoordinateSystem.rotateGlobalToLocal(&initial_stress);
+    _localCoordinateSystem.rotateLocalToGlobal(&initial_stress);
 
     _eigenstrain[_qp] = _elasticity_tensor[_qp].invSymm() * initial_stress;
   }

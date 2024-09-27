@@ -64,13 +64,12 @@ OpalinusElasticityTensor::OpalinusElasticityTensor(const InputParameters & param
     _normal_local_axis(declareProperty<std::vector<Real>>("normal_local_vector"))
 
 {
+  // Check validity of input parameters
+  if ((_nu_p > 1.0 - 2.0 * std::pow(_nu_s, 2) * _Ep / _Es))
+    mooseError("The components of elastic tensor violate the condition "
+               "nu_p <= 1 - 2 * (nu_s)^2 * (E_p / E_s)");
 
-  // local copy of the base vectors to speed up computeQpProperties
-  // once we can use initQpStatefulProperties, we can get rid of these
-  _e1 = _localCoordinateSystem.e1();
-  _e2 = _localCoordinateSystem.e2();
-  _e3 = _localCoordinateSystem.e3();
-
+  // build Cijkl in local coordinate system
   std::vector<Real> input(9);
   input[0] = _Ep * (1.0 - (_Ep / _Es) * std::pow(_nu_s, 2.0)) / (1.0 + _nu_p) /
              (1.0 - _nu_p - 2.0 * (_Ep / _Es) * std::pow(_nu_s, 2.0));
@@ -82,64 +81,39 @@ OpalinusElasticityTensor::OpalinusElasticityTensor(const InputParameters & param
   input[5] = _Es * (1.0 - _nu_p) / (1.0 - _nu_p - 2.0 * (_Ep / _Es) * std::pow(_nu_s, 2.0));
   input[6] = input[7] = _G_s;
 
-  if ((_nu_p > 1.0 - 2.0 * std::pow(_nu_s, 2) * _Ep / _Es))
-    mooseError(
-        "The components of elastic tensor violate the condition nu_p<=1-2*(nu_s)^2*(E_p/E_s)");
-
   _Cijkl.fillSymmetric9FromInputVector(input);
-  _localCoordinateSystem.rotateGlobalToLocal(&_Cijkl);
+
+  // rotate Cijkl to global coordinates
+  _localCoordinateSystem.rotateLocalToGlobal(&_Cijkl);
+
+  // local copy of the base vectors to speed up computeQpProperties
+  const auto e1 = _localCoordinateSystem.e1();
+  const auto e2 = _localCoordinateSystem.e2();
+  const auto e3 = _localCoordinateSystem.e3();
+  _e1 = std::vector<Real>({e1(0), e1(1), e1(2)});
+  _e2 = std::vector<Real>({e2(0), e2(1), e2(2)});
+  _e3 = std::vector<Real>({e3(0), e3(1), e3(2)});
 }
 
 void
 OpalinusElasticityTensor::initQpStatefulProperties()
 {
-  // const auto e1 = _localCoordinateSystem.e1();
-  // const auto e2 = _localCoordinateSystem.e2();
-  // const auto e3 = _localCoordinateSystem.e3();
-  //
-  // _first_local_axis[_qp].resize(3);
-  // (_first_local_axis)[_qp][0] = e1(0);
-  // (_first_local_axis)[_qp][1] = e1(1);
-  // (_first_local_axis)[_qp][2] = e1(2);
-  //
-  // _second_local_axis[_qp].resize(3);
-  // (_second_local_axis)[_qp][0] = e2(0);
-  // (_second_local_axis)[_qp][1] = e2(1);
-  // (_second_local_axis)[_qp][2] = e2(2);
-  //
-  // _normal_local_axis[_qp].resize(3);
-  // (_normal_local_axis)[_qp][0] = e3(0);
-  // (_normal_local_axis)[_qp][1] = e3(1);
-  // (_normal_local_axis)[_qp][2] = e3(2);
+  computeQpProperties();
 }
 
 void
 OpalinusElasticityTensor::computeQpProperties()
 {
+
   // Assign elasticity tensor at a given quad point
-  _elasticity_tensor[_qp] = _Cijkl;
-
-  // Multiply by prefactor
+  // with and without prefactor
   if (_prefactor_function)
-  {
-    _elasticity_tensor[_qp] *= _prefactor_function->value(_t, _q_point[_qp]);
-  }
+    _elasticity_tensor[_qp] = _Cijkl * _prefactor_function->value(_t, _q_point[_qp]);
+  else
+    _elasticity_tensor[_qp] = _Cijkl;
 
-  // @Kavan-Khaledi: Moving the lines below to initQpStatefulProperties gives a Segmentation fault.
-  // Could you please have a look?
-
-  _first_local_axis[_qp].resize(3);
-  (_first_local_axis)[_qp][0] = _e1(0);
-  (_first_local_axis)[_qp][1] = _e1(1);
-  (_first_local_axis)[_qp][2] = _e1(2);
-
-  _second_local_axis[_qp].resize(3);
-  (_second_local_axis)[_qp][0] = _e2(0);
-  (_second_local_axis)[_qp][1] = _e2(1);
-  (_second_local_axis)[_qp][2] = _e2(2);
-
-  _normal_local_axis[_qp].resize(3);
-  (_normal_local_axis)[_qp][0] = _e3(0);
-  (_normal_local_axis)[_qp][1] = _e3(1);
-  (_normal_local_axis)[_qp][2] = _e3(2);
+  // set local axis (for output)
+  _first_local_axis[_qp] = _e1;
+  _second_local_axis[_qp] = _e2;
+  _normal_local_axis[_qp] = _e3;
 }
