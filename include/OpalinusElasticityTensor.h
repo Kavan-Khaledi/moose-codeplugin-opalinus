@@ -15,6 +15,7 @@
 #include "RankFourTensor.h"
 #include "SymmetricRankFourTensor.h"
 #include "GuaranteeProvider.h"
+#include "CartesianLocalCoordinateSystem.h"
 
 /**
  * OpalinusElasticityTensor defines an elasticity tensor material object with a given base name.
@@ -29,6 +30,7 @@ public:
 
 protected:
   void computeQpProperties() override;
+  void initQpStatefulProperties() override;
 
   /// Individual material information
   const std::string _base_name;
@@ -40,12 +42,20 @@ protected:
   const Real _nu_p;
   const Real _nu_s;
   const Real _G_s;
-  const RealVectorValue _geological_angles;
 
+  /// Reference to the local coordinate system
+  const CartesianLocalCoordinateSystem & _localCoordinateSystem;
+
+  // Local copies of base vectors of the local coordinate system
+  std::vector<Real> _e1;
+  std::vector<Real> _e2;
+  std::vector<Real> _e3;
+
+  /// material properties for the local axis (for output)
   MaterialProperty<std::vector<Real>> & _first_local_axis;
   MaterialProperty<std::vector<Real>> & _second_local_axis;
   MaterialProperty<std::vector<Real>> & _normal_local_axis;
 
+  // variable holding Cijkl
   RankFourTensor _Cijkl;
-  RankTwoTensor _geological_rotation;
 };

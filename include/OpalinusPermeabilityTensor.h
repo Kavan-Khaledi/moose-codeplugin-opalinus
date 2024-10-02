@@ -15,8 +15,11 @@
 #include "RankFourTensor.h"
 #include "SymmetricRankFourTensor.h"
 #include "GuaranteeProvider.h"
+#include "CartesianLocalCoordinateSystem.h"
+
 /**
  * Material designed to provide a constant permeability tensor
+ * rotated according to a local coordinate system
  */
 
 class OpalinusPermeabilityTensor : public Material
@@ -28,16 +31,27 @@ public:
 
 protected:
   void computeQpProperties() override;
-  MaterialProperty<RealTensorValue> & _permeability_qp;
-  MaterialProperty<std::vector<RealTensorValue>> & _dpermeability_qp_dvar;
-  MaterialProperty<std::vector<std::vector<RealTensorValue>>> & _dpermeability_qp_dgradvar;
-  /// Constant value of permeability tensor
-  RealTensorValue _input_permeability;
-  RealVectorValue _geological_angles;
-  RankTwoTensor _geological_rotation;
-  RankTwoTensor _unrotated_permeability;
-  const Real _k_p;
-  const Real _k_s;
+
+  const CartesianLocalCoordinateSystem & _localCoordinateSystem;
+
+  /// permeabilities
+  const Real _permeability1;
+  const Real _permeability2;
+  const Real _permeability3;
+
   /// prefactor function to multiply the permeability tensor with
-  const Function & _prefactor_f;
+  const Function * const _prefactor_function;
+
+  /// Quadpoint permeability
+  MaterialProperty<RealTensorValue> & _permeability_qp;
+
+  /// d(quadpoint permeability)/d(PorousFlow variable)
+  MaterialProperty<std::vector<RealTensorValue>> & _dpermeability_qp_dvar;
+
+  /// d(quadpoint permeability)/d(grad(PorousFlow variable))
+  MaterialProperty<std::vector<std::vector<RealTensorValue>>> & _dpermeability_qp_dgradvar;
+
+private:
+  /// Constant value of permeability tensor
+  RankTwoTensor _input_permeability;
 };

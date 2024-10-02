@@ -7,6 +7,7 @@
 #include "SolidMechanicsHardeningModel.h"
 #include <cmath>
 #include "libmesh/libmesh.h"
+#include "CartesianLocalCoordinateSystem.h"
 
 class DesaiHardeningStressUpdate : public MultiParameterPlasticityStressUpdate
 {
@@ -33,8 +34,10 @@ protected:
   const Real _mean_gama;
   const Real _omega1;
   const Real _b1;
-  const Real _dip;
-  const Real _strike;
+
+  /// Reference to the local coordinate system
+  const CartesianLocalCoordinateSystem & _localCoordinateSystem;
+
   const Real _a0;
   const Real _eta;
   const Real _n0;
@@ -45,6 +48,7 @@ protected:
   const Real _dam_A;
   const Real _dam_F;
   const Real _dam_N;
+
   /// plastic strain
   MaterialProperty<Real> & _alfa;
 

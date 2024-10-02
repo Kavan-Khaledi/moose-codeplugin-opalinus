@@ -71,6 +71,21 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   []
 []
 
+[AuxVariables]
+  [normal_axis_x]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [normal_axis_y]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+  [normal_axis_z]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+[]
+
 [AuxKernels]
   [stress_xx]
     type = RankTwoAux
@@ -97,6 +112,33 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     index_i = 2
     index_j = 2
     execute_on = timestep_end
+    block = '${active_block_names}'
+  []
+[]
+
+[AuxKernels]
+  [normal_axis_x]
+    type = MaterialStdVectorAux
+    property = normal_local_vector
+    variable = normal_axis_x
+    index = 0
+    execute_on = TIMESTEP_END
+    block = '${active_block_names}'
+  []
+  [normal_axis_y]
+    type = MaterialStdVectorAux
+    property = normal_local_vector
+    variable = normal_axis_y
+    index = 1
+    execute_on = TIMESTEP_END
+    block = '${active_block_names}'
+  []
+  [normal_axis_z]
+    type = MaterialStdVectorAux
+    property = normal_local_vector
+    variable = normal_axis_z
+    index = 2
+    execute_on = TIMESTEP_END
     block = '${active_block_names}'
   []
 []
@@ -337,6 +379,22 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   []
 []
 
+# Local coordinate systems (material and initial stress)
+[UserObjects]
+  [ucsInitialStress]
+    type = CartesianLocalCoordinateSystem
+    e1 = '0 1 0'  # trend_s1 = 0;  plunge_s1 = 90
+    e2 = '0 0 1'  # trend_s2 = 90; plunge_s2 = 0
+    # e3: trend_s3 = 0; plunge_s3 = 0
+  []
+  [ucsOpalinusMaterial]
+    type = CartesianLocalCoordinateSystem
+    dip_direction_degree = '90'
+    dip_angle_degree = '35'
+    dip_option = 'e1_e2_plane_e1_horizontal'
+  []
+[]
+
 [Materials]
 
   [temperature]
@@ -385,10 +443,10 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   [rock_permeability_bulk]
     type = OpalinusPermeabilityTensor
     block = '${RockVolumes}'
-    permeability_parallel = 1e-19
-    permeability_normal = 1e-21
-    dip_direction = 90
-    dip = 35
+    permeability1 = 1e-19
+    permeability2 = 1e-19
+    permeability3 = 1e-21
+    local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
   [rock_elasticity_tensor]
@@ -399,18 +457,17 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     poisson_ratio_in_plane = 0.15
     poisson_ratio_normal = 0.35
     shear_module_normal = 1000
-    dip_direction = 90
-    dip = 35
+    local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
   [tunnel01_permeability_bulk]
     type = OpalinusPermeabilityTensor
     block = 'tunnel01'
-    permeability_parallel = 1e-19
-    permeability_normal = 1e-21
+    permeability1 = 1e-19
+    permeability2 = 1e-19
+    permeability3 = 1e-21
     permeability_tensor_prefactor = tunnel01_permeability_prefactor
-    dip_direction = 90
-    dip = 35
+    local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
   [tunnel01_elasticity_tensor]
@@ -421,19 +478,18 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     poisson_ratio_in_plane = 0.15
     poisson_ratio_normal = 0.35
     shear_module_normal = 1000
-    dip_direction = 90
-    dip = 35
+    local_coordinate_system = 'ucsOpalinusMaterial'
     elasticity_tensor_prefactor = Tunnel01_elasticity_tensor_prefactor
   []
 
   [tunnelXX_permeability_bulk]
     type = OpalinusPermeabilityTensor
     block = 'tunnel02 tunnel03 tunnel04 tunnel05 tunnel06 tunnel07 tunnel08 tunnel09 tunnel10 tunnel11 tunnel12 tunnel13 tunnel14 tunnel15 tunnel16 tunnel17 tunnel18 tunnel19 tunnel20'
-    permeability_parallel = 1e-19
-    permeability_normal = 1e-21
+    permeability1 = 1e-19
+    permeability2 = 1e-19
+    permeability3 = 1e-21
     #permeability_tensor_prefactor = permeability_prefactor_method1
-    dip_direction = 90
-    dip = 35
+    local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
   [tunnelXX_elasticity_tensor]
@@ -444,8 +500,7 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     poisson_ratio_in_plane = 0.15
     poisson_ratio_normal = 0.35
     shear_module_normal = 1000
-    dip_direction = 90
-    dip = 35
+    local_coordinate_system = 'ucsOpalinusMaterial'
     # elasticity_tensor_prefactor = TunnelXX_elasticity_tensor_prefactor
   []
 
@@ -458,19 +513,15 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   []
 
   [ini_stress]
-    type = OpalinusEigenstrainFromInitialStress
+    type = ComputeEigenstrainFromGeostaticInitialStress
     block = '${active_block_names}'
-    eigenstrain_name = ini_stress
+    eigenstrain_name = 'ini_stress'
+    local_coordinate_system = 'ucsInitialStress'
     principal_stress_1 = 4.5
-    trend_s1 = 0
-    plunge_s1 = 90
     principal_stress_2 = 2.5
-    trend_s2 = 90
-    plunge_s2 = 0
     principal_stress_3 = 0.7
-    trend_s3 = 0
-    plunge_s3 = 0
   []
+
 []
 
 [UserObjects]
