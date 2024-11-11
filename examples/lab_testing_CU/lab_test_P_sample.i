@@ -295,7 +295,7 @@ dip_angle = 90
   []
 
   [opalinus]
-    type = DesaiHardeningStressUpdate
+    type = OpalinusPerfectPlasticStressUpdate
     local_coordinate_system = 'ucsOpalinusMaterial'
     gama_mean = 0.9
     parameter_omega_1 = 0.15
