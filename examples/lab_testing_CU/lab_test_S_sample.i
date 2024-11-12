@@ -4,7 +4,7 @@
 pconf = 8 #MPa --> the initial effective confining pressure applied to the sample before shearing
 pw = 9 # the initial pore pressure after consilidation phase
 pconf_total = ${pconf}+${pw} #MPa Total confining presure
-dip_angle = 90
+dip_angle = 0
 
 [GlobalParams]
   displacements = 'disp_x disp_y disp_z'

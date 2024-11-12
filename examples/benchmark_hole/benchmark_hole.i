@@ -138,7 +138,7 @@
   []
 []
 
-[UserObjects]
+[MeshModifiers]
   [GlobalSubdomainModifier]
     type = TimedSubdomainModifier
     times = '2'
@@ -146,7 +146,9 @@
     blocks_to = 'tunnel_inactive'
     execute_on = 'INITIAL TIMESTEP_BEGIN'
   []
+[]
 
+[UserObjects]
   [ucsInitialStress]
     type = CartesianLocalCoordinateSystem
     e1 = '1 0 0'

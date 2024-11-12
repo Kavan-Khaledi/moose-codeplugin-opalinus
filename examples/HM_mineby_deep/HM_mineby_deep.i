@@ -339,6 +339,9 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     dip_angle_degree = 0
     dip_option = 'e1_e2_plane_e1_horizontal'
   []
+[]
+
+[MeshModifiers]
   [GlobalSubdomainModifier]
     type = TimedSubdomainModifier
     times = '2 3 4 5 6 7 8 9 10 11 12 13 14 15 16'
