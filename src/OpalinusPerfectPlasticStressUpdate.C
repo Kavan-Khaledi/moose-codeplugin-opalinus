@@ -21,16 +21,23 @@ OpalinusPerfectPlasticStressUpdate::validParams()
                         "that is the result from perfect plasticity.  With "
                         "severe hardening/softening this may be "
                         "suboptimal.");
-  params.addRequiredParam<Real>("gama_mean", "gama_mean");
-  params.addParam<Real>("parameter_omega_1", 0.0, "parameter_omega_1");
-  params.addParam<Real>("parameter_b_1", 0.0, "parameter_b_1");
+  params.addRequiredParam<Real>("gama_mean", "Slope of the failure line in p-q-diagram.");
+  params.addRequiredParam<Real>("p_tensile",
+                                "Intersection of the failure with the p-axis in the p-q-diagram.");
+  params.addParam<Real>(
+      "parameter_omega_1",
+      0.0,
+      "Anisotropic plasticity parameter omega_1 according to S. Pietruszczak and Z. Mraz.");
+  params.addParam<Real>(
+      "parameter_b_1",
+      0.0,
+      "Anisotropic plasticity parameter b_1 according to S. Pietruszczak and Z. Mraz.");
   params.addRequiredParam<UserObjectName>(
       "local_coordinate_system",
       "The UserObject that defines the local coordinate system. "
       "The local axis e1 and e2 of this coordinate system are considered in plane while "
       "the local axis e3 is assumed to be 'normal'.");
   params.addParam<Real>("psi_to_phi", 1.0, "psi_to_phi");
-  params.addRequiredParam<Real>("p_tensile", "p_tensile");
   params.addParam<Real>("tip_smoother", 0.0, "tip_smoother");
   params.addParam<Real>("curvature_yield", 0.0, "Curvature of plastic yield in p-q space");
   params.addParam<Real>(
@@ -43,30 +50,32 @@ OpalinusPerfectPlasticStressUpdate::validParams()
   return params;
 }
 
-OpalinusPerfectPlasticStressUpdate::OpalinusPerfectPlasticStressUpdate(const InputParameters &parameters)
-    : MultiParameterPlasticityStressUpdate(parameters, 6, 1, 1),
-      _psi_to_phi(getParam<Real>("psi_to_phi")),
-      _St(parameters.get<Real>("p_tensile")),
-      _perfect_guess(getParam<bool>("perfect_guess")),
-      _small_smoother2(Utility::pow<2>(getParam<Real>("tip_smoother"))),
-      _beta(getParam<Real>("lode_angle_coefficient")),
-      _betta1(getParam<Real>("curvature_yield")),
-      _mv(getParam<Real>("Fs_function_power")),
-      _mean_gama(parameters.get<Real>("gama_mean") / std::sqrt(27.0)),
-      _omega1(getParam<Real>("parameter_omega_1")),
-      _b1(getParam<Real>("parameter_b_1")),
-      _localCoordinateSystem(
-          getUserObject<CartesianLocalCoordinateSystem>("local_coordinate_system")),
-      _a0(getParam<Real>("hardening_a0")),
-      _eta(getParam<Real>("hardening_eta")),
-      _n0(getParam<Real>("parameter_n0")),
-      _gama(declareProperty<Real>(_base_name + "gama"))
+OpalinusPerfectPlasticStressUpdate::OpalinusPerfectPlasticStressUpdate(
+    const InputParameters & parameters)
+  : MultiParameterPlasticityStressUpdate(parameters, 6, 1, 1),
+    _psi_to_phi(getParam<Real>("psi_to_phi")),
+    _St(parameters.get<Real>("p_tensile")),
+    _perfect_guess(getParam<bool>("perfect_guess")),
+    _small_smoother2(Utility::pow<2>(getParam<Real>("tip_smoother"))),
+    _beta(getParam<Real>("lode_angle_coefficient")),
+    _betta1(getParam<Real>("curvature_yield")),
+    _mv(getParam<Real>("Fs_function_power")),
+    _mean_gama(parameters.get<Real>("gama_mean") / std::sqrt(27.0)),
+    _omega1(getParam<Real>("parameter_omega_1")),
+    _b1(getParam<Real>("parameter_b_1")),
+    _localCoordinateSystem(
+        getUserObject<CartesianLocalCoordinateSystem>("local_coordinate_system")),
+    _a0(getParam<Real>("hardening_a0")),
+    _eta(getParam<Real>("hardening_eta")),
+    _n0(getParam<Real>("parameter_n0")),
+    _gama(declareProperty<Real>(_base_name + "gama"))
 
 {
 }
 
-void OpalinusPerfectPlasticStressUpdate::computeStressParams(const RankTwoTensor &stress,
-                                                             std::vector<Real> &stress_params) const
+void
+OpalinusPerfectPlasticStressUpdate::computeStressParams(const RankTwoTensor & stress,
+                                                        std::vector<Real> & stress_params) const
 {
   stress_params[0] = stress(0, 0);
   stress_params[1] = stress(1, 1);
@@ -78,7 +87,7 @@ void OpalinusPerfectPlasticStressUpdate::computeStressParams(const RankTwoTensor
 }
 
 std::vector<RankTwoTensor>
-OpalinusPerfectPlasticStressUpdate::dstress_param_dstress(const RankTwoTensor &stress) const
+OpalinusPerfectPlasticStressUpdate::dstress_param_dstress(const RankTwoTensor & stress) const
 {
   (void)stress;
 
@@ -94,7 +103,7 @@ OpalinusPerfectPlasticStressUpdate::dstress_param_dstress(const RankTwoTensor &s
 }
 
 std::vector<RankFourTensor>
-OpalinusPerfectPlasticStressUpdate::d2stress_param_dstress(const RankTwoTensor &stress) const
+OpalinusPerfectPlasticStressUpdate::d2stress_param_dstress(const RankTwoTensor & stress) const
 {
   (void)stress;
 
@@ -104,21 +113,25 @@ OpalinusPerfectPlasticStressUpdate::d2stress_param_dstress(const RankTwoTensor &
   return d2;
 }
 
-void OpalinusPerfectPlasticStressUpdate::preReturnMapV(const std::vector<Real> & /*trial_stress_params*/,
-                                                       const RankTwoTensor &stress_trial,
-                                                       const std::vector<Real> & /*intnl_old*/,
-                                                       const std::vector<Real> & /*yf*/,
-                                                       const RankFourTensor &Eijkl)
+void
+OpalinusPerfectPlasticStressUpdate::preReturnMapV(const std::vector<Real> & /*trial_stress_params*/,
+                                                  const RankTwoTensor & stress_trial,
+                                                  const std::vector<Real> & /*intnl_old*/,
+                                                  const std::vector<Real> & /*yf*/,
+                                                  const RankFourTensor & Eijkl)
 {
+  (void)stress_trial; // silence compiler warning about unused variable
+  (void)Eijkl;        // silence compiler warning about unused variable
 }
 
-void OpalinusPerfectPlasticStressUpdate::setStressAfterReturnV(const RankTwoTensor & /*stress_trial*/,
-                                                               const std::vector<Real> &stress_params,
-                                                               Real /*gaE*/,
-                                                               const std::vector<Real> & /*intnl*/,
-                                                               const yieldAndFlow & /*smoothed_q*/,
-                                                               const RankFourTensor & /*Eijkl*/,
-                                                               RankTwoTensor &stress) const
+void
+OpalinusPerfectPlasticStressUpdate::setStressAfterReturnV(const RankTwoTensor & /*stress_trial*/,
+                                                          const std::vector<Real> & stress_params,
+                                                          Real /*gaE*/,
+                                                          const std::vector<Real> & /*intnl*/,
+                                                          const yieldAndFlow & /*smoothed_q*/,
+                                                          const RankFourTensor & /*Eijkl*/,
+                                                          RankTwoTensor & stress) const
 {
   stress = RankTwoTensor(stress_params[0],
                          stress_params[3],
@@ -132,10 +145,12 @@ void OpalinusPerfectPlasticStressUpdate::setStressAfterReturnV(const RankTwoTens
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::yieldFunctionValuesV(const std::vector<Real> &stress_params,
-                                                              const std::vector<Real> &intnl,
-                                                              std::vector<Real> &yf) const
+void
+OpalinusPerfectPlasticStressUpdate::yieldFunctionValuesV(const std::vector<Real> & stress_params,
+                                                         const std::vector<Real> & intnl,
+                                                         std::vector<Real> & yf) const
 {
+  (void)intnl; // silence compiler warning about unused variable
 
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],
@@ -165,10 +180,12 @@ void OpalinusPerfectPlasticStressUpdate::yieldFunctionValuesV(const std::vector<
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::computeAllQV(const std::vector<Real> &stress_params,
-                                                      const std::vector<Real> &intnl,
-                                                      std::vector<yieldAndFlow> &all_q) const
+void
+OpalinusPerfectPlasticStressUpdate::computeAllQV(const std::vector<Real> & stress_params,
+                                                 const std::vector<Real> & intnl,
+                                                 std::vector<yieldAndFlow> & all_q) const
 {
+  (void)intnl; // silence compiler warning about unused variable
 
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],
@@ -417,7 +434,8 @@ void OpalinusPerfectPlasticStressUpdate::computeAllQV(const std::vector<Real> &s
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::setEffectiveElasticity(const RankFourTensor &Eijkl)
+void
+OpalinusPerfectPlasticStressUpdate::setEffectiveElasticity(const RankFourTensor & Eijkl)
 {
 
   _En = Eijkl(0, 0, 0, 0) + Eijkl(1, 1, 1, 1) + Eijkl(2, 2, 2, 2);
@@ -466,11 +484,12 @@ void OpalinusPerfectPlasticStressUpdate::setEffectiveElasticity(const RankFourTe
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real> &trial_stress_params,
-                                                         const std::vector<Real> &intnl_old,
-                                                         std::vector<Real> &stress_params,
-                                                         Real &gaE,
-                                                         std::vector<Real> &intnl) const
+void
+OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real> & trial_stress_params,
+                                                    const std::vector<Real> & intnl_old,
+                                                    std::vector<Real> & stress_params,
+                                                    Real & gaE,
+                                                    std::vector<Real> & intnl) const
 {
 
   if (!_perfect_guess)
@@ -565,25 +584,26 @@ void OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real>
 
       const Real i1_test = (stress_test.trace()) - 3.0 * _St;
 
-      Real j2_test = (stress_test.secondInvariant());
-      Real j3_test = (stress_test.thirdInvariant());
+      // Real j2_test = (stress_test.secondInvariant());
+      // Real j3_test = (stress_test.thirdInvariant());
+      // if (j2_test < 1e-2)
+      // {
+      //   j3_test = 0.0;
+      //   j2_test = 1e-2;
+      // }
 
-      if (j2_test < 1e-2)
-      {
-        j3_test = 0.0;
-        j2_test = 1e-2;
-      }
-      const Real cof = std::sqrt(27.0) / 2.0;
-      const Real q_test = std::sqrt(j2_test);
+      // const Real cof = std::sqrt(27.0) / 2.0;
+      // const Real q_test = std::sqrt(j2_test);
 
-      const Real sr = std::clamp(cof * j3_test / std::pow(j2_test, 1.5), -1.0, +1.0);
+      // const Real sr = std::clamp(cof * j3_test / std::pow(j2_test, 1.5), -1.0, +1.0);
 
-      const Real fs_test = std::pow(std::exp(_betta1 * i1_test) + _beta * sr, _mv);
+      // const Real fs_test = std::pow(std::exp(_betta1 * i1_test) + _beta * sr, _mv);
 
-      const Real fb_test = _gama[_qp] * i1_test;
+      // const Real fb_test = _gama[_qp] * i1_test;
 
-      const Real test_desai_yf =
-          std::sqrt(std::pow(q_test, 2.0) + _small_smoother2) + fb_test * fs_test;
+      // const Real test_desai_yf =
+      //     std::sqrt(std::pow(q_test, 2.0) + _small_smoother2) + fb_test * fs_test;
+
       if (i1_test >= 3.0 * _St - std::sqrt(_small_smoother2) / (_mean_gama))
       {
         stress_params[0] = _St - std::sqrt(_small_smoother2) / (3.0 * _mean_gama);
@@ -592,9 +612,9 @@ void OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real>
         stress_params[3] = 0.0;
         stress_params[4] = 0.0;
         stress_params[5] = 0.0;
-        const Real ptrial =
-            trial_stress_params[0] + trial_stress_params[1] + trial_stress_params[2];
-        const Real p = stress_params[0] + stress_params[1] + stress_params[2];
+        // const Real ptrial =
+        //     trial_stress_params[0] + trial_stress_params[1] + trial_stress_params[2];
+        // const Real p = stress_params[0] + stress_params[1] + stress_params[2];
 
         gaE = _En * (trial_stress_params[0] - stress_params[0]) / (_Eij[0][0] * _mean_gama);
       }
@@ -608,10 +628,11 @@ void OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real>
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::setIntnlValuesV(const std::vector<Real> &trial_stress_params,
-                                                         const std::vector<Real> &current_stress_params,
-                                                         const std::vector<Real> &intnl_old,
-                                                         std::vector<Real> &intnl) const
+void
+OpalinusPerfectPlasticStressUpdate::setIntnlValuesV(const std::vector<Real> & trial_stress_params,
+                                                    const std::vector<Real> & current_stress_params,
+                                                    const std::vector<Real> & intnl_old,
+                                                    std::vector<Real> & intnl) const
 {
 
   std::vector<Real> cp3(_num_sp);
@@ -633,10 +654,12 @@ void OpalinusPerfectPlasticStressUpdate::setIntnlValuesV(const std::vector<Real>
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::setIntnlDerivativesV(const std::vector<Real> &trial_stress_params,
-                                                              const std::vector<Real> &current_stress_params,
-                                                              const std::vector<Real> &intnl,
-                                                              std::vector<std::vector<Real>> &dintnl) const
+void
+OpalinusPerfectPlasticStressUpdate::setIntnlDerivativesV(
+    const std::vector<Real> & trial_stress_params,
+    const std::vector<Real> & current_stress_params,
+    const std::vector<Real> & intnl,
+    std::vector<std::vector<Real>> & dintnl) const
 {
   (void)trial_stress_params;
 
@@ -669,17 +692,18 @@ void OpalinusPerfectPlasticStressUpdate::setIntnlDerivativesV(const std::vector<
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::consistentTangentOperatorV(
-    const RankTwoTensor &stress_trial,
-    const std::vector<Real> &trial_stress_params,
+void
+OpalinusPerfectPlasticStressUpdate::consistentTangentOperatorV(
+    const RankTwoTensor & stress_trial,
+    const std::vector<Real> & trial_stress_params,
     const RankTwoTensor & /*stress*/,
-    const std::vector<Real> &stress_params,
+    const std::vector<Real> & stress_params,
     Real gaE,
     const yieldAndFlow & /*smoothed_q*/,
-    const RankFourTensor &elasticity_tensor,
+    const RankFourTensor & elasticity_tensor,
     bool compute_full_tangent_operator,
-    const std::vector<std::vector<Real>> &dvar_dtrial,
-    RankFourTensor &cto)
+    const std::vector<std::vector<Real>> & dvar_dtrial,
+    RankFourTensor & cto)
 {
   (void)stress_trial;
   (void)trial_stress_params;
@@ -820,14 +844,18 @@ void OpalinusPerfectPlasticStressUpdate::consistentTangentOperatorV(
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::initializeReturnProcess()
+void
+OpalinusPerfectPlasticStressUpdate::initializeReturnProcess()
 {
 }
 
-void OpalinusPerfectPlasticStressUpdate::compute_dg(const std::vector<Real> &stress_params,
-                                                    const std::vector<Real> &intnl,
-                                                    std::vector<Real> &dgg) const
+void
+OpalinusPerfectPlasticStressUpdate::compute_dg(const std::vector<Real> & stress_params,
+                                               const std::vector<Real> & intnl,
+                                               std::vector<Real> & dgg) const
 {
+  (void)intnl; // silence compiler warning about unused variable
+
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],
                                                  stress_params[4],
@@ -920,10 +948,13 @@ void OpalinusPerfectPlasticStressUpdate::compute_dg(const std::vector<Real> &str
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::compute_df(const std::vector<Real> &stress_params,
-                                                    const std::vector<Real> &intnl,
-                                                    std::vector<Real> &dff) const
+void
+OpalinusPerfectPlasticStressUpdate::compute_df(const std::vector<Real> & stress_params,
+                                               const std::vector<Real> & intnl,
+                                               std::vector<Real> & dff) const
 {
+  (void)intnl; // silence compiler warning about unused variable
+
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],
                                                  stress_params[4],
@@ -1017,7 +1048,9 @@ void OpalinusPerfectPlasticStressUpdate::compute_df(const std::vector<Real> &str
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::setGamaValue(const std::vector<Real> &stress_params, Real &gama) const
+void
+OpalinusPerfectPlasticStressUpdate::setGamaValue(const std::vector<Real> & stress_params,
+                                                 Real & gama) const
 {
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],
@@ -1046,10 +1079,12 @@ void OpalinusPerfectPlasticStressUpdate::setGamaValue(const std::vector<Real> &s
   return;
 }
 
-void OpalinusPerfectPlasticStressUpdate::compute_d2g(const std::vector<Real> &stress_params,
-                                                     const std::vector<Real> &intnl,
-                                                     std::vector<std::vector<Real>> &d2gg) const
+void
+OpalinusPerfectPlasticStressUpdate::compute_d2g(const std::vector<Real> & stress_params,
+                                                const std::vector<Real> & intnl,
+                                                std::vector<std::vector<Real>> & d2gg) const
 {
+  (void)intnl; // silence compiler warning about unused variable
 
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],

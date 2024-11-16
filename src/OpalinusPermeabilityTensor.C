@@ -26,21 +26,21 @@ OpalinusPermeabilityTensor::validParams()
 
   params.addRequiredParam<Real>(
       "permeability1",
-      "Permeability in direction of the 'e1' axis of the coordinate system given by "
+      "Intrinsic permeability in direction of the 'e1' axis of the coordinate system given by "
       "'local_coordinate_system' in unit LE² (e.g. m²). "
       "If the plane e1-e2 of the local coordinate system is representing the bedding, "
       "than this permeability controls flow parallel to this bedding "
       "(in this case for Opalinus, this corresponds to permeability of the P-samples)");
   params.addRequiredParam<Real>(
       "permeability2",
-      "Permeability in direction of the 'e2' axis of the coordinate system given by "
+      "Intrinsic permeability in direction of the 'e2' axis of the coordinate system given by "
       "'local_coordinate_system' in unit LE² (e.g. m²). "
       "If the plane e1-e2 of the local coordinate system is representing the bedding, "
       "than this permeability controls flow parallel to this bedding "
       "(in this case for Opalinus, this corresponds to permeability of the P-samples)");
   params.addRequiredParam<Real>(
       "permeability3",
-      "Permeability in direction of the 'e3' axis of the coordinate system given by "
+      "Intrinsic permeability in direction of the 'e3' axis of the coordinate system given by "
       "'local_coordinate_system' in unit LE² (e.g. m²). "
       "If the plane e1-e2 of the local coordinate system is representing the bedding, "
       "than this permeability controls flow normal to this bedding "

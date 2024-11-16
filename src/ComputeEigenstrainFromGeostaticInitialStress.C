@@ -158,9 +158,7 @@ ComputeEigenstrainFromGeostaticInitialStress::computeQpEigenstrain()
     if (bs3_inc_z)
       s3 += (z - z0) * _s3_inc_z;
 
-    auto initial_stress = RankTwoTensor(s1, 0, 0,
-                                        0, s2, 0,
-                                        0, 0, s3);
+    auto initial_stress = RankTwoTensor(s1, 0, 0, 0, s2, 0, 0, 0, s3);
 
     _localCoordinateSystem.rotateLocalToGlobal(&initial_stress);
 
