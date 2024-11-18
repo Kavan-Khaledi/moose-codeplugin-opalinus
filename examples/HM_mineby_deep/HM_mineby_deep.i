@@ -314,9 +314,9 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     type = ComputeEigenstrainFromGeostaticInitialStress
     eigenstrain_name = 'ini_stress'
     local_coordinate_system = 'ucsInitialStress'
-    principal_stress_1 = 13.5
-    principal_stress_2 = 17.5
-    principal_stress_3 = 13.5
+    principal_stress_1 = 13.5   # effective stresses
+    principal_stress_2 = 17.5   # effective stresses
+    principal_stress_3 = 13.5   # effective stresses
   []
 []
 
@@ -369,7 +369,7 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
 
   line_search = none
 
-  nl_abs_tol = 5e-4
+  nl_abs_tol = 1e-3
   nl_rel_tol = 1e-7
 
   l_max_its = 20

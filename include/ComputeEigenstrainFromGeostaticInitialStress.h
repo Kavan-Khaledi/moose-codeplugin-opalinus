@@ -38,7 +38,6 @@ protected:
   const MaterialProperty<RankTwoTensor> & _eigenstrain_old;
 
 private:
-
   const CartesianLocalCoordinateSystem & _localCoordinateSystem;
 
   const Real _s1;
@@ -56,5 +55,4 @@ private:
   const Real _s3_inc_x;
   const Real _s3_inc_y;
   const Real _s3_inc_z;
-
 };

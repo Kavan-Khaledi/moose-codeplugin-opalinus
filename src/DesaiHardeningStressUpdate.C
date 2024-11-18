@@ -18,7 +18,7 @@ DesaiHardeningStressUpdate::validParams()
   params.addParam<bool>("perfect_guess",
                         true,
                         "Provide a guess to the Newton-Raphson procedure "
-                        "that is the result from perfect plasticity.  With "
+                        "that is the result from perfect plasticity. With "
                         "severe hardening/softening this may be "
                         "suboptimal.");
   // params.addRequiredParam<Real>("yield_slop_pq", "yield_slop_pq"); //

@@ -45,11 +45,11 @@ public:
   //// Third base vector of the local coordinate system
   const RealVectorValue e3() const { return _e3; };
 
-  void rotateGlobalToLocal(RankTwoTensor* t) const;
-  void rotateGlobalToLocal(RankFourTensor* t) const;
+  void rotateGlobalToLocal(RankTwoTensor * t) const;
+  void rotateGlobalToLocal(RankFourTensor * t) const;
 
-  void rotateLocalToGlobal(RankTwoTensor* t) const;
-  void rotateLocalToGlobal(RankFourTensor* t) const;
+  void rotateLocalToGlobal(RankTwoTensor * t) const;
+  void rotateLocalToGlobal(RankFourTensor * t) const;
 
 private:
   //// First base vector of the local coordinate system
@@ -66,7 +66,6 @@ private:
 
   //// rotation tensor rotating 'local to global'
   RankTwoTensor _rotate_local_to_global;
-
 
   // const RankTwoTensor _rotation_e1;
   // const RankTwoTensor _rotation_e2;
