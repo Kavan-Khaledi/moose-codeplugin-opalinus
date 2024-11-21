@@ -1,12 +1,12 @@
 [Tests]
   issues = '#1'
-  # [bi_axial]
-  #   type = 'Exodiff'
-  #   heavy = 'true'
-  #   input = 'bi-axial.i'
-  #   exodiff = 'bi-axial_out.e'
-  #   requirement = 'Bi-axial loading of a cube.'
-  # []
+  [bi_axial]
+    type = 'Exodiff'
+    # heavy = 'true'
+    input = 'bi-axial.i'
+    exodiff = 'bi-axial_out.e'
+    requirement = 'Bi-axial loading of a cube.'
+  []
   [HM_tunnel_x]
     type = 'Exodiff'
     heavy = 'true'
