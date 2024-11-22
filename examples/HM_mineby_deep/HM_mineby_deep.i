@@ -6,8 +6,6 @@
   PorousFlowDictator = dictator
 []
 
-inactive_block_names = 'tunnel_inactive'
-inactive_block_ids = '100'
 
 [Mesh]
   [file]
@@ -17,42 +15,42 @@ inactive_block_ids = '100'
 
   second_order = true
 
+  active_block_names = '${RockVolumes} ${TunnelVolumes}'
+  inactive_block_names = 'tunnel_inactive'
+
   add_subdomain_names = '${inactive_block_names}'
-  add_subdomain_ids = '${inactive_block_ids}'
 []
 
 !include HM_tunnel_x.groups.i
 
-active_block_names = '${RockVolumes} ${TunnelVolumes}'
-
 [Problem]
   kernel_coverage_check = 'SKIP_LIST'
-  kernel_coverage_block_list = '${inactive_block_names}'
+  kernel_coverage_block_list = '${Mesh/inactive_block_names}'
   material_coverage_check = 'SKIP_LIST'
-  material_coverage_block_list = '${inactive_block_names}'
+  material_coverage_block_list = '${Mesh/inactive_block_names}'
 []
 
 [Variables]
   [disp_x]
-    order = SECOND
     family = LAGRANGE
-    block = '${active_block_names}'
+    order = SECOND
+    block = '${Mesh/active_block_names}'
   []
   [disp_y]
-    order = SECOND
     family = LAGRANGE
-    block = '${active_block_names}'
+    order = SECOND
+    block = '${Mesh/active_block_names}'
   []
   [disp_z]
-    order = SECOND
     family = LAGRANGE
-    block = '${active_block_names}'
+    order = SECOND
+    block = '${Mesh/active_block_names}'
   []
   [porepressure]
-    order = SECOND
     family = LAGRANGE
+    order = SECOND
     scaling = 1e-5
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
 []
 
@@ -61,72 +59,71 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     [QuasiStatic]
       [all]
         strain = SMALL
+        add_variables = false
         incremental = true
-        #add_variables = true
         eigenstrain_names = ini_stress
-        block = '${active_block_names}'
+        block = '${Mesh/active_block_names}'
       []
     []
   []
 []
 
-# ===== Kernels: Inactive Domains =====
+# ===== Kernels: PorousFlow =====
 [Kernels]
   [effective_stress_x]
     type = PorousFlowEffectiveStressCoupling
+    block = '${Mesh/active_block_names}'
     variable = disp_x
     component = 0
-    block = '${active_block_names}'
   []
 
   [effective_stress_y]
     type = PorousFlowEffectiveStressCoupling
+    block = '${Mesh/active_block_names}'
     variable = disp_y
     component = 1
-    block = '${active_block_names}'
   []
 
   [effective_stress_z]
     type = PorousFlowEffectiveStressCoupling
+    block = '${Mesh/active_block_names}'
     variable = disp_z
     component = 2
-    block = '${active_block_names}'
   []
 
   [mass0]
     type = PorousFlowMassTimeDerivative
+    block = '${Mesh/active_block_names}'
     fluid_component = 0
     variable = porepressure
-    block = '${active_block_names}'
   []
 
   [flux]
     type = PorousFlowFullySaturatedDarcyFlow
+    block = '${Mesh/active_block_names}'
     variable = porepressure
     gravity = '0 0 0'
     fluid_component = 0
-    block = '${active_block_names}'
   []
 
   [poro_vol_exp]
     type = PorousFlowMassVolumetricExpansion
+    block = '${Mesh/active_block_names}'
     variable = porepressure
     fluid_component = 0
-    block = '${active_block_names}'
   []
 []
 
 [ICs]
   [porepressure]
     type = FunctionIC
-    variable = porepressure
+    variable = 'porepressure'
+    block = '${Mesh/active_block_names}'
     function = '9'
-    block = '${active_block_names}'
   []
 []
 
 [AuxVariables]
-
   [internal_plastic_variable]
     order = CONSTANT
     family = MONOMIAL
@@ -145,43 +142,43 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
 
   [internal_plastic_variable]
     type = MaterialStdVectorAux
+    block = '${Mesh/active_block_names}'
     property = plastic_internal_parameter
-    index = 0
     variable = internal_plastic_variable
-    block = '${active_block_names}'
+    index = 0
   []
+
   [p]
     type = RankTwoScalarAux
+    block = '${Mesh/active_block_names}'
     rank_two_tensor = stress
     variable = p
     scalar_type = Hydrostatic
-    block = '${active_block_names}'
   []
+
   [q]
     type = RankTwoScalarAux
+    block = '${Mesh/active_block_names}'
     rank_two_tensor = stress
     variable = q
-    scalar_type = VonMisesStress
-    block = '${active_block_names}'
+    scalar_type = vonMisesStress
   []
+
 []
 
 [BCs]
-
   [fix_x]
     type = DirichletBC
     variable = disp_x
     boundary = '${XMinSurfaces} ${XMaxSurfaces}'
     value = 0.0
   []
-
   [fix_y]
     type = DirichletBC
     variable = disp_y
     boundary = '${YMinSurfaces} ${YMaxSurfaces}'
     value = 0.0
   []
-
   [fix_z]
     type = DirichletBC
     variable = disp_z
@@ -201,11 +198,24 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   []
   [y_pw]
     type = PorousFlowSink
-    boundary = '${YMinSurfaces}'
+    boundary = '${YMinSurfaces_fix}'
     variable = porepressure
     flux_function = 0.0
   []
 []
+
+YMinSurfaces_fix = 'rock_i01_f00a
+                    rock_i01_f00b
+                    rock_i01_f00c
+                    rock_i01_f00d
+                    rock_i02_f00a
+                    rock_i02_f00b
+                    rock_i02_f00c
+                    rock_i02_f00d' # tunnel_f00'   # @Kavan-Khaledi: remove 'tunnel_f00' to avoid the error shown below
+
+# We caught a libMesh error in ThreadedElementLoopBase:Assertion `i < _val.size()' failed.
+# i = 0
+# _val.size() = 0
 
 [FluidProperties]
   [simple_fluid]
@@ -217,34 +227,80 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   []
 []
 
+# Material: Volume Elements
 [Materials]
+
+  [rock_elasticity_tensor]
+    type = OpalinusElasticityTensor
+    block = '${Mesh/active_block_names}'
+    local_coordinate_system = 'ucsOpalinusMaterial'
+    youngs_modulus_in_plane = 11000
+    youngs_modulus_normal = 6000
+    poisson_ratio_in_plane = 0.15
+    poisson_ratio_normal = 0.25
+    shear_module_normal = 2000
+  []
+
+  [opalinus_mont_terri]
+    type = OpalinusPerfectPlasticStressUpdate
+    block = '${Mesh/active_block_names}'
+    local_coordinate_system = 'ucsOpalinusMaterial'
+    gama_mean = 0.9
+    parameter_omega_1 = 0.15
+    parameter_b_1 = 6.7
+    p_tensile = 6
+    yield_function_tol = 1e-3
+    smoothing_tol = 0.0
+    tip_smoother = 2
+    max_NR_iterations = 50
+    min_step_size = 0.004
+  []
+
+  [stress]
+    type = ComputeMultipleInelasticStress
+    block = '${Mesh/active_block_names}'
+    inelastic_models = 'opalinus_mont_terri'
+    perform_finite_strain_rotations = false
+    tangent_operator = 'nonlinear'
+  []
+
+  [ini_stress]
+    block = '${Mesh/active_block_names}'
+    type = ComputeEigenstrainFromGeostaticInitialStress
+    eigenstrain_name = 'ini_stress'
+    local_coordinate_system = 'ucsInitialStress'
+    principal_stress_1 = 13.5   # effective stresses
+    principal_stress_2 = 17.5   # effective stresses
+    principal_stress_3 = 13.5   # effective stresses
+  []
+
   [temperature]
     type = PorousFlowTemperature
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
   [eff_fluid_pressure]
     type = PorousFlowEffectiveFluidPressure
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
   [vol_strain]
     type = PorousFlowVolumetricStrain
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
   [ppss]
     type = PorousFlow1PhaseFullySaturated
     porepressure = porepressure
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
 
   [massfrac]
     type = PorousFlowMassFraction
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
   [simple_fluid]
     type = PorousFlowSingleComponentFluid
     fp = simple_fluid
     phase = 0
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
 
   [porosity_bulk]
@@ -254,70 +310,26 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     ensure_positive = true
     porosity_zero = 0.11
     solid_bulk = 1.3333E10
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
   []
 
   [undrained_density_0]
     type = GenericConstantMaterial
-    block = '${active_block_names}'
+    block = '${Mesh/active_block_names}'
     prop_names = density
     prop_values = 2500
   []
 
   [rock_permeability_bulk]
     type = OpalinusPermeabilityTensor
+    block = '${Mesh/active_block_names}'
     permeability1 = 5e-19
     permeability2 = 5e-19
     permeability3 = 5e-20
 
     local_coordinate_system = 'ucsOpalinusMaterial'
-    block = '${active_block_names}'
   []
 
-  [rock_elasticity_tensor]
-    type = OpalinusElasticityTensor
-    youngs_modulus_in_plane = 11000
-    youngs_modulus_normal = 6000
-    poisson_ratio_in_plane = 0.15
-    poisson_ratio_normal = 0.25
-    shear_module_normal = 2000
-    local_coordinate_system = 'ucsOpalinusMaterial'
-    block = '${active_block_names}'
-  []
-
-  [opalinus_mont_terri]
-    type = OpalinusPerfectPlasticStressUpdate
-    gama_mean = 0.9
-    parameter_omega_1 = 0.15
-    parameter_b_1 = 6.7
-    p_tensile = 6
-    local_coordinate_system = 'ucsOpalinusMaterial'
-
-    yield_function_tol = 1e-3
-    smoothing_tol = 0.0
-    tip_smoother = 2
-    max_NR_iterations = 50
-    min_step_size = 0.004
-    block = '${active_block_names}'
-  []
-
-  [stress]
-    type = ComputeMultipleInelasticStress
-    block = '${active_block_names}'
-    inelastic_models = 'opalinus_mont_terri'
-    perform_finite_strain_rotations = false
-    tangent_operator = 'nonlinear'
-  []
-
-  [ini_stress]
-    block = '${active_block_names}'
-    type = ComputeEigenstrainFromGeostaticInitialStress
-    eigenstrain_name = 'ini_stress'
-    local_coordinate_system = 'ucsInitialStress'
-    principal_stress_1 = 13.5   # effective stresses
-    principal_stress_2 = 17.5   # effective stresses
-    principal_stress_3 = 13.5   # effective stresses
-  []
 []
 
 [UserObjects]
@@ -352,7 +364,7 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
 []
 
 [Preconditioning]
-  [.\SMP]
+  [SMP]
     type = SMP
     full = true
     petsc_options = '-ksp_snes_ew'
