@@ -51,7 +51,6 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
   [porepressure]
     order = SECOND
     family = LAGRANGE
-    scaling = 1e-5
     block = '${active_block_names}'
   []
 []
