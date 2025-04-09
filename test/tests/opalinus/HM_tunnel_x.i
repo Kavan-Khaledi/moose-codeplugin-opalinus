@@ -466,7 +466,7 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     permeability1 = 1e-19
     permeability2 = 1e-19
     permeability3 = 1e-21
-    permeability_tensor_prefactor = tunnel01_permeability_prefactor
+    prefactor_functor = tunnel01_permeability_prefactor
     local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
@@ -488,7 +488,7 @@ active_block_names = '${RockVolumes} ${TunnelVolumes}'
     permeability1 = 1e-19
     permeability2 = 1e-19
     permeability3 = 1e-21
-    #permeability_tensor_prefactor = permeability_prefactor_method1
+    #prefactor_functor = permeability_prefactor_method1
     local_coordinate_system = 'ucsOpalinusMaterial'
   []
 
