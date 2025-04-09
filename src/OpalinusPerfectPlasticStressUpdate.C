@@ -23,22 +23,29 @@ OpalinusPerfectPlasticStressUpdate::validParams()
                         "suboptimal.");
   params.addRequiredParam<Real>("gama_mean", "Slope of the failure line in p-q-diagram.");
   params.addRequiredParam<Real>("p_tensile",
-                                "Intersection of the failure with the p-axis in the p-q-diagram.");
+                                "Intersection of the failure with the p-axis in the p-q-diagram "
+                                "(physical unit: pressure).");
+
+  // parameters from S. Pietruszczak, Z. Mroz: "Formulation of anisotropic failure criteria
+  // incorporating a microstructure tensor", Computers and Geotechnics 26 (2) (2000) 105-112.
   params.addParam<Real>(
       "parameter_omega_1",
       0.0,
-      "Anisotropic plasticity parameter omega_1 according to S. Pietruszczak and Z. Mraz.");
+      "Anisotropic plasticity parameter omega_1 according to S. Pietruszczak and Z. Mróz (2000).");
   params.addParam<Real>(
       "parameter_b_1",
       0.0,
-      "Anisotropic plasticity parameter b_1 according to S. Pietruszczak and Z. Mraz.");
+      "Anisotropic plasticity parameter b_1 according to S. Pietruszczak and Z. Mróz (2000).");
+
+  // material coordinate system
   params.addRequiredParam<UserObjectName>(
       "local_coordinate_system",
       "The UserObject that defines the local coordinate system. "
       "The local axis e1 and e2 of this coordinate system are considered in plane while "
       "the local axis e3 is assumed to be 'normal'.");
+
   params.addParam<Real>("psi_to_phi", 1.0, "psi_to_phi");
-  params.addParam<Real>("tip_smoother", 0.0, "tip_smoother");
+  params.addParam<Real>("tip_smoother", 0.0, "tip_smoother (physical unit: pressure).");
   params.addParam<Real>("curvature_yield", 0.0, "Curvature of plastic yield in p-q space");
   params.addParam<Real>(
       "lode_angle_coefficient", 0.0, "lode angle dependency coefficient, between 0 and 0.7");
@@ -167,13 +174,13 @@ OpalinusPerfectPlasticStressUpdate::yieldFunctionValuesV(const std::vector<Real>
   const Real j2 = std::max(1e-2, stress_now.secondInvariant());
   const Real j3 = stress_now.thirdInvariant();
 
-  const Real q = std::sqrt(j2);
+  // const Real q = std::sqrt(j2);
   const Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
   const Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
 
   const Real fb = _gama[_qp] * i1;
 
-  yf[0] = std::sqrt(std::pow(q, 2.0) + _small_smoother2) + fb * fs;
+  yf[0] = std::sqrt(j2 + _small_smoother2) + fb * fs;
 
   return;
 }

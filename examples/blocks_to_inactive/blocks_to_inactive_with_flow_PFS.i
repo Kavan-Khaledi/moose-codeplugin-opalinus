@@ -1,3 +1,4 @@
+# This test re-assigns the elements of one subdomain to another subdomain.
 
 [GlobalParams]
   time_unit = days
@@ -6,28 +7,46 @@
   PorousFlowDictator = dictator
 []
 
-
-[Mesh]
-  [file]
-    type = FileMeshGenerator
-    file = "HM_tunnel_x.msh"
-  []
-
-  second_order = true
-
-  active_block_names = '${RockVolumes} ${TunnelVolumes}'
-  inactive_block_names = 'tunnel_inactive'
-
-  add_subdomain_names = '${inactive_block_names}'
-[]
-
-!include HM_tunnel_x.groups.i
+Box1_inactive_name = 'Box1_inactive'
+inactive_domain_block_names = '${Box1_inactive_name}'
 
 [Problem]
-  kernel_coverage_check = 'SKIP_LIST'
-  kernel_coverage_block_list = '${Mesh/inactive_block_names}'
-  material_coverage_check = 'SKIP_LIST'
-  material_coverage_block_list = '${Mesh/inactive_block_names}'
+  solve = true
+  kernel_coverage_check = SKIP_LIST
+  kernel_coverage_block_list = '${inactive_domain_block_names}'
+  material_coverage_check = SKIP_LIST
+  material_coverage_block_list = '${inactive_domain_block_names}'
+[]
+
+[Mesh]
+  [BaseMesh]
+    type = GeneratedMeshGenerator
+    subdomain_name = 'BaseMesh'
+    elem_type = 'TET10'
+    dim = 3
+    nx = 3
+    ny = 3
+    nz = 2
+    xmin = -3
+    xmax = +3
+    ymin = -3
+    ymax = +3
+    zmin = -2
+    zmax = +2
+  []
+
+  [Box1]
+    type = SubdomainBoundingBoxGenerator
+    block_name = 'Box1'
+    input = "BaseMesh"
+    block_id = 1
+    location = "INSIDE"
+    bottom_left = "-1.0 -1.0 -0.0"
+    top_right = "+1.0 +1.0 +2.0"
+  []
+
+  add_subdomain_names = '${inactive_domain_block_names}'
+  active_block_names = 'BaseMesh Box1'
 []
 
 [Variables]
@@ -62,7 +81,8 @@
         add_variables = false
         incremental = true
         eigenstrain_names = ini_stress
-        block = '${Mesh/active_block_names}'
+        generate_output = 'max_principal_stress mid_principal_stress min_principal_stress stress_xx stress_xy stress_xz stress_yy stress_yz stress_zz'
+        block = 'BaseMesh Box1'
       []
     []
   []
@@ -119,15 +139,29 @@
     type = FunctionIC
     variable = 'porepressure'
     block = '${Mesh/active_block_names}'
-    function = '9'
+    function = '0'
   []
 []
 
+# ===== AuxVariable & AuxKernel: internal_plastic_variable =====
 [AuxVariables]
   [internal_plastic_variable]
     order = CONSTANT
     family = MONOMIAL
   []
+[]
+[AuxKernels]
+  [internal_plastic_variable]
+    type = MaterialStdVectorAux
+    block = '${Mesh/active_block_names}'
+    property = 'plastic_internal_parameter'
+    variable = 'internal_plastic_variable'
+    index = 0
+  []
+[]
+
+# ===== AuxVariable & AuxKernel: p & q =====
+[AuxVariables]
   [p]
     order = CONSTANT
     family = MONOMIAL
@@ -137,25 +171,14 @@
     family = MONOMIAL
   []
 []
-
 [AuxKernels]
-
-  [internal_plastic_variable]
-    type = MaterialStdVectorAux
-    block = '${Mesh/active_block_names}'
-    property = plastic_internal_parameter
-    variable = internal_plastic_variable
-    index = 0
-  []
-
   [p]
     type = RankTwoScalarAux
     block = '${Mesh/active_block_names}'
     rank_two_tensor = stress
     variable = p
-    scalar_type = Hydrostatic
+    scalar_type = hydrostatic
   []
-
   [q]
     type = RankTwoScalarAux
     block = '${Mesh/active_block_names}'
@@ -163,59 +186,146 @@
     variable = q
     scalar_type = vonMisesStress
   []
-
 []
 
-[BCs]
-  [fix_x]
-    type = DirichletBC
-    variable = disp_x
-    boundary = '${XMinSurfaces} ${XMaxSurfaces}'
-    value = 0.0
+
+[AuxVariables]
+  [maxprincipal]
+    order = CONSTANT
+    family = MONOMIAL
   []
-  [fix_y]
+  [minprincipal]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+[]
+[AuxKernels]
+  [maxprincipal]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = maxprincipal
+    scalar_type = MaxPrincipal
+  []
+  [minprincipal]
+    type = RankTwoScalarAux
+    rank_two_tensor = stress
+    variable = minprincipal
+    scalar_type = MinPrincipal
+  []
+[]
+
+
+# ===== AuxVariable & AuxKernel: total_strain_zz =====
+[AuxVariables]
+  [total_strain_zz]
+    order = CONSTANT
+    family = MONOMIAL
+  []
+[]
+[AuxKernels]
+  [total_strain_zz]
+    type = RankTwoAux
+    block = '${Mesh/active_block_names}'
+    rank_two_tensor = total_strain
+    variable = total_strain_zz
+    index_i = 2
+    index_j = 2
+    execute_on = timestep_end
+  []
+[]
+
+# ===== fix the lower model boundary in y and z direction =====
+[BCs]
+  [back_fix_y]
     type = DirichletBC
     variable = disp_y
-    boundary = '${YMinSurfaces} ${YMaxSurfaces}'
+    boundary = 'back'
     value = 0.0
   []
-  [fix_z]
+  [back_fix_z]
     type = DirichletBC
     variable = disp_z
-    boundary = '${ZMinSurfaces} ${ZMaxSurfaces}'
+    boundary = 'back'
     value = 0.0
   []
+[]
 
-  [fix_pw]
-    type = PorousFlowPiecewiseLinearSink
-    variable = porepressure
-    PT_shift = 9
-    pt_vals = '-1E3 1E3'
-    multipliers = '-1 1'
-    fluid_phase = 0
-    flux_function = 1e5
-    boundary = '${ZMinSurfaces} ${ZMaxSurfaces}  ${YMaxSurfaces} ${XMinSurfaces} ${XMaxSurfaces}'
+# fix the left model boundary in x direction
+[BCs]
+  [left_fix_x]
+    type = DirichletBC
+    variable = disp_x
+    boundary = 'left'
+    value = 0.0
   []
-  [y_pw]
+[]
+
+# put some pressure on the right model boundary
+[BCs]
+  [right_Dirichlet]
+    type = FunctionDirichletBC
+    variable = disp_x
+    boundary = 'right'
+    function = right_pressure_function
+  []
+[]
+[Functions]
+  [right_pressure_function]
+    type = ParsedFunction
+    expression = '-0.001 * t'
+  []
+[]
+
+# no flow at the outside
+[BCs]
+  [fix_pw]
+    type = DirichletBC
+    variable = 'porepressure'
+    boundary = 'left right back front top bottom'
+    value = '0'
+  []
+[]
+
+# PorousFlowSink at 'front'
+[BCs]
+  [front_pfs]
     type = PorousFlowSink
-    boundary = '${YMinSurfaces_fix}'
-    variable = porepressure
+    boundary = 'front'
+    variable = 'porepressure'
     flux_function = 0.0
   []
 []
+# [Times]
+#   [times_on]
+#     type = InputTimes
+#     times = '0.2'
+#   []
+# []
+# [Controls]
+#   [times]
+#     type = TimesEnableControl
+#     times = times_on
+#     disable_objects = 'BCs::front_pfs'
+#     execute_on = 'INITIAL TIMESTEP_BEGIN'
+#   []
+# []
 
-YMinSurfaces_fix = 'rock_i01_f00a
-                    rock_i01_f00b
-                    rock_i01_f00c
-                    rock_i01_f00d
-                    rock_i02_f00a
-                    rock_i02_f00b
-                    rock_i02_f00c
-                    rock_i02_f00d' # tunnel_f00'   # @Kavan-Khaledi: remove 'tunnel_f00' to avoid the error shown below
+[UserObjects]
+  [ucsMaterial]
+    type = CartesianLocalCoordinateSystem
+    e1 = '1 0 0'
+    e2 = '0 1 0'
+  []
+[]
 
-# We caught a libMesh error in ThreadedElementLoopBase:Assertion `i < _val.size()' failed.
-# i = 0
-# _val.size() = 0
+[UserObjects]
+  [dictator]
+    type = PorousFlowDictator
+    porous_flow_vars = 'porepressure disp_x disp_y disp_z'
+    number_fluid_phases = 1
+    number_fluid_components = 1
+  []
+[]
 
 [FluidProperties]
   [simple_fluid]
@@ -230,10 +340,10 @@ YMinSurfaces_fix = 'rock_i01_f00a
 # Material: Volume Elements
 [Materials]
 
-  [rock_elasticity_tensor]
+  [elasticity_tensor]
     type = OpalinusElasticityTensor
     block = '${Mesh/active_block_names}'
-    local_coordinate_system = 'ucsOpalinusMaterial'
+    local_coordinate_system = 'ucsMaterial'
     youngs_modulus_in_plane = 11000
     youngs_modulus_normal = 6000
     poisson_ratio_in_plane = 0.15
@@ -241,10 +351,10 @@ YMinSurfaces_fix = 'rock_i01_f00a
     shear_module_normal = 2000
   []
 
-  [opalinus_mont_terri]
+  [PerfectPlastic]
     type = OpalinusPerfectPlasticStressUpdate
     block = '${Mesh/active_block_names}'
-    local_coordinate_system = 'ucsOpalinusMaterial'
+    local_coordinate_system = 'ucsMaterial'
     gama_mean = 0.9
     parameter_omega_1 = 0.15
     parameter_b_1 = 6.7
@@ -256,22 +366,19 @@ YMinSurfaces_fix = 'rock_i01_f00a
     min_step_size = 0.004
   []
 
+  [ini_stress]
+    type = ComputeEigenstrainFromInitialStress
+    block = '${Mesh/active_block_names}'
+    eigenstrain_name = ini_stress
+    initial_stress = '0 0 0  0 0 0  0 0 0'
+  []
+
   [stress]
     type = ComputeMultipleInelasticStress
     block = '${Mesh/active_block_names}'
-    inelastic_models = 'opalinus_mont_terri'
+    inelastic_models = 'PerfectPlastic'
     perform_finite_strain_rotations = false
     tangent_operator = 'nonlinear'
-  []
-
-  [ini_stress]
-    block = '${Mesh/active_block_names}'
-    type = ComputeEigenstrainFromGeostaticInitialStress
-    eigenstrain_name = 'ini_stress'
-    local_coordinate_system = 'ucsInitialStress'
-    principal_stress_1 = 13.5   # effective stresses
-    principal_stress_2 = 17.5   # effective stresses
-    principal_stress_3 = 13.5   # effective stresses
   []
 
   [temperature]
@@ -288,7 +395,7 @@ YMinSurfaces_fix = 'rock_i01_f00a
   []
   [ppss]
     type = PorousFlow1PhaseFullySaturated
-    porepressure = porepressure
+    porepressure = 'porepressure'
     block = '${Mesh/active_block_names}'
   []
 
@@ -320,45 +427,24 @@ YMinSurfaces_fix = 'rock_i01_f00a
     prop_values = 2500
   []
 
-  [rock_permeability_bulk]
+  [permeability_bulk]
     type = OpalinusPermeabilityTensor
     block = '${Mesh/active_block_names}'
     permeability1 = 5e-19
     permeability2 = 5e-19
     permeability3 = 5e-20
 
-    local_coordinate_system = 'ucsOpalinusMaterial'
-  []
-
-[]
-
-[UserObjects]
-  [dictator]
-    type = PorousFlowDictator
-    porous_flow_vars = 'porepressure disp_x disp_y disp_z'
-    number_fluid_phases = 1
-    number_fluid_components = 1
-  []
-
-  [ucsInitialStress]
-    type = CartesianLocalCoordinateSystem
-    e1 = '1 0 0'
-    e2 = '0 1 0'
-  []
-  [ucsOpalinusMaterial]
-    type = CartesianLocalCoordinateSystem
-    dip_direction_degree = 0
-    dip_angle_degree = 0
-    dip_option = 'e1_e2_plane_e1_horizontal'
+    local_coordinate_system = 'ucsMaterial'
   []
 []
 
+# move elements between subdomains back and forth
 [MeshModifiers]
   [GlobalSubdomainModifier]
     type = TimedSubdomainModifier
-    times = '2 3 4 5 6 7 8 9 10 11 12 13 14 15 16'
-    blocks_from = ' tunnel01 tunnel02 tunnel03 tunnel04 tunnel05 tunnel06 tunnel07 tunnel08 tunnel09 tunnel10 tunnel11 tunnel12 tunnel13 tunnel14 tunnel15'
-    blocks_to = 'tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive tunnel_inactive'
+    times = '0.2'
+    blocks_from = 'Box1'
+    blocks_to = 'Box1_inactive'
     execute_on = 'INITIAL TIMESTEP_BEGIN'
   []
 []
@@ -376,19 +462,29 @@ YMinSurfaces_fix = 'rock_i01_f00a
 
 [Executioner]
   type = Transient
-  solve_type = PJFNK
-  #automatic_scaling = true
+
+  solve_type = 'PJFNK' #'NEWTON'
+  petsc_options = '-snes_converged_reason'
+  petsc_options_iname = '-pc_type -pc_factor_mat_solver_package'
+  petsc_options_value = ' lu       mumps'
 
   line_search = none
 
-  nl_abs_tol = 1e-3
-  nl_rel_tol = 1e-7
-
+  l_tol = 1E-5
   l_max_its = 20
-  nl_max_its = 15
-  dt = 1
-  start_time = 0.0
-  end_time = 17
+
+  nl_abs_tol = 1E-3
+  nl_rel_tol = 1e-7
+  nl_max_its = 20
+
+  end_time = 1.0
+  dtmin = 0.001
+  [TimeSteppers]
+    [BlockEventTimeStepper]
+      type = TimeSequenceStepper
+      time_sequence = '0.05 0.1 0.2 0.4 1.0'
+    []
+  []
 
   [Quadrature]
     type = SIMPSON
@@ -398,6 +494,5 @@ YMinSurfaces_fix = 'rock_i01_f00a
 
 [Outputs]
   perf_graph = true
-  print_linear_residuals = false
   exodus = true
 []
