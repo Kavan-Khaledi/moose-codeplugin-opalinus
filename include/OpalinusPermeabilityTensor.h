@@ -39,10 +39,11 @@ protected:
   const Real _permeability2;
   const Real _permeability3;
 
-  /// prefactor function to multiply the permeability tensor with
-  const Function * const _prefactor_function;
+  /// prefactor functor and material property to multiply the permeability tensor with
+  const Moose::Functor<Real> * const _prefactor_functor;
+  const MaterialProperty<Real> * const _prefactor_matprop;
 
-  /// Quadpoint permeability
+  /// quadpoint permeability
   MaterialProperty<RealTensorValue> & _permeability_qp;
 
   /// d(quadpoint permeability)/d(PorousFlow variable)
