@@ -19,12 +19,15 @@ OpalinusDamage::validParams()
   InputParameters params = ScalarDamageBase::validParams();
   params.addClassDescription(
       "Scalar damage model for which the damage is prescribed by another material");
-  params.addParam<Real>("pd1", 0.0, "pd1");
-  params.addParam<Real>("pd2", 10000, "pd2");
-  params.addParam<Real>("pd3", 1.0, "pd3");
-  params.addParam<Real>("pd4", 1.0, "pd4");
+  params.addParam<Real>("parameter_damageI",
+                        0.0,
+                        "Onset of damage. This value is compared to the value of the "
+                        "'nonlocal_variable' and if equal or exceeded, damage is considered.");
+  params.addParam<Real>("parameter_damageF", 10000, "parameter_damageF");
+  params.addParam<Real>("parameter_damageA", 1.0, "parameter_damageA");
+  params.addParam<Real>("parameter_damageN", 1.0, "parameter_damageN");
   params.addParam<Real>("omega", 1.0, "omega");
-  params.addRequiredCoupledVar("nonlocal_variable", "This is non local variable for damage");
+  params.addRequiredCoupledVar("nonlocal_variable", "This is the non-local variable for damage.");
 
   return params;
 }
@@ -33,10 +36,10 @@ OpalinusDamage::OpalinusDamage(const InputParameters & parameters)
   : ScalarDamageBase(parameters),
     _total_strain(getMaterialPropertyByName<RankTwoTensor>(_base_name + "total_strain")),
     _intnl(getMaterialPropertyByName<std::vector<Real>>(_base_name + "plastic_internal_parameter")),
-    _pd1(getParam<Real>("pd1")),
-    _pd2(getParam<Real>("pd2")),
-    _pd3(getParam<Real>("pd3")),
-    _pd4(getParam<Real>("pd4")),
+    _dam_I(getParam<Real>("parameter_damageI")),
+    _dam_F(getParam<Real>("parameter_damageF")),
+    _dam_A(getParam<Real>("parameter_damageA")),
+    _dam_N(getParam<Real>("parameter_damageN")),
     _omega(getParam<Real>("omega")),
     _nonlocal_var(coupledValue("nonlocal_variable"))
 
@@ -48,9 +51,9 @@ OpalinusDamage::updateQpDamageIndex()
 {
   Real kesi = _nonlocal_var[_qp];
   // Real kesi=-_total_strain[_qp](2,2);
-  Real pd1 = _pd1;
+  Real dam_I = _dam_I;
 
-  if (kesi <= pd1)
+  if (kesi <= dam_I)
   {
     _damage_index[_qp] = 0.0;
     _damage_index[_qp] = std::max(_damage_index[_qp], _damage_index_old[_qp]);
@@ -58,7 +61,8 @@ OpalinusDamage::updateQpDamageIndex()
   else
   {
     _damage_index[_qp] = std::min(
-        _omega, _omega * std::max(0.0, 1.0 - std::exp(-_pd3 * pow((kesi - pd1) / _pd2, _pd4))));
+        _omega,
+        _omega * std::max(0.0, 1.0 - std::exp(-_dam_A * pow((kesi - dam_I) / _dam_F, _dam_N))));
     _damage_index[_qp] = std::max(_damage_index[_qp], _damage_index_old[_qp]);
     ///_damage_index[_qp]=0.0;
   }

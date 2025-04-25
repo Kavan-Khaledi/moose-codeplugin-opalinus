@@ -29,10 +29,10 @@ protected:
   // const MaterialProperty<Real> & _dam_cri;
   /// Rotation increment material property
   ///@}
-  const Real _pd1;
-  const Real _pd2;
-  const Real _pd3;
-  const Real _pd4;
+  const Real _dam_I;
+  const Real _dam_F;
+  const Real _dam_A;
+  const Real _dam_N;
   const Real _omega;
   const VariableValue & _nonlocal_var;
 };
