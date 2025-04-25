@@ -29,9 +29,9 @@ protected:
   const bool _perfect_guess;
   const Real _small_smoother2;
   const Real _beta;
-  const Real _betta1;
+  const Real _beta1;
   const Real _mv;
-  const Real _mean_gama;
+  const Real _mean_gamma;
   const Real _omega1;
   const Real _b1;
 
@@ -41,9 +41,8 @@ protected:
   const Real _a0;
   const Real _eta;
   const Real _n0;
-  const Real _kesi0;
   const VariableValue & _nonlocal_var;
-  const Real _gamar;
+  const Real _gammar;
   const Real _dam_I;
   const Real _dam_A;
   const Real _dam_F;
@@ -53,18 +52,18 @@ protected:
   MaterialProperty<Real> & _alfa;
 
   /// Old value of plastic strain
-  const MaterialProperty<Real> & _alfa_old;
+  // const MaterialProperty<Real> & _alfa_old;
 
   /// plastic strain
-  MaterialProperty<Real> & _gama;
+  MaterialProperty<Real> & _gamma;
 
   /// Old value of plastic strain
-  const MaterialProperty<Real> & _gama_old;
+  // const MaterialProperty<Real> & _gamma_old;
   /// plastic strain
-  MaterialProperty<Real> & _gama0;
+  MaterialProperty<Real> & _gamma0;
 
   /// Old value of plastic strain
-  const MaterialProperty<Real> & _gama0_old;
+  // const MaterialProperty<Real> & _gamma0_old;
 
   void computeStressParams(const RankTwoTensor & stress,
                            std::vector<Real> & stress_params) const override;
@@ -130,12 +129,12 @@ protected:
   virtual void compute_df(const std::vector<Real> & stress_params,
                           const std::vector<Real> & intnl,
                           std::vector<Real> & dff) const;
-  virtual void setGamaValue(const std::vector<Real> & stress_params, Real & gama) const;
+  virtual void setGammaValue(const std::vector<Real> & stress_params, Real & gamma) const;
 
   virtual void compute_d2g(const std::vector<Real> & stress_params,
                            const std::vector<Real> & intnl,
                            std::vector<std::vector<Real>> & d2gg) const;
-  virtual void setGamaDamage(const Real & gama0, Real & gama) const;
+  virtual void setGammaDamage(const Real & gamma0, Real & gamma) const;
 
 private:
 };

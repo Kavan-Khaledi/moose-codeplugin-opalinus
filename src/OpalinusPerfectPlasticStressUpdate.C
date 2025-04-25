@@ -15,44 +15,71 @@ OpalinusPerfectPlasticStressUpdate::validParams()
 
   params.addClassDescription("Compute stress for Non-associated Plasticity for Geomaterials");
 
-  params.addParam<bool>("perfect_guess",
-                        true,
-                        "Provide a guess to the Newton-Raphson procedure "
-                        "that is the result from perfect plasticity.  With "
-                        "severe hardening/softening this may be "
-                        "suboptimal.");
-  params.addRequiredParam<Real>("gama_mean", "Slope of the failure line in p-q-diagram.");
-  params.addRequiredParam<Real>("p_tensile",
-                                "Intersection of the failure with the p-axis in the p-q-diagram "
-                                "(physical unit: pressure).");
-
-  // parameters from S. Pietruszczak, Z. Mroz: "Formulation of anisotropic failure criteria
-  // incorporating a microstructure tensor", Computers and Geotechnics 26 (2) (2000) 105-112.
-  params.addParam<Real>(
-      "parameter_omega_1",
-      0.0,
-      "Anisotropic plasticity parameter omega_1 according to S. Pietruszczak and Z. Mróz (2000).");
-  params.addParam<Real>(
-      "parameter_b_1",
-      0.0,
-      "Anisotropic plasticity parameter b_1 according to S. Pietruszczak and Z. Mróz (2000).");
-
-  // material coordinate system
+  // === material coordinate system ===
   params.addRequiredParam<UserObjectName>(
       "local_coordinate_system",
       "The UserObject that defines the local coordinate system. "
       "The local axis e1 and e2 of this coordinate system are considered in plane while "
       "the local axis e3 is assumed to be 'normal'.");
 
-  params.addParam<Real>("psi_to_phi", 1.0, "psi_to_phi");
-  params.addParam<Real>("tip_smoother", 0.0, "tip_smoother (physical unit: pressure).");
-  params.addParam<Real>("curvature_yield", 0.0, "Curvature of plastic yield in p-q space");
+  params.addRequiredParam<Real>("p_tensile",
+                                "Intersection of the failure with the p-axis in the p-q-diagram "
+                                "(physical unit: pressure).");
+
+  // === Anisotropic Strength ===
+  // parameters from S. Pietruszczak, Z. Mroz: "Formulation of anisotropic failure criteria
+  // incorporating a microstructure tensor", Computers and Geotechnics 26 (2) (2000) 105-112.
+  params.addRequiredParam<Real>(
+      "gamma_mean",
+      "Slope of the failure line in p-q-diagram. In the paper of Khaledi "
+      "et al. (2023) this parameter is named gamma_m (physical unit: dimensionless).");
   params.addParam<Real>(
-      "lode_angle_coefficient", 0.0, "lode angle dependency coefficient, between 0 and 0.7");
-  params.addParam<Real>("Fs_function_power", -0.25, "power of Fs function");
-  params.addParam<Real>("parameter_n0", 3.0, "parameter_n0");
-  params.addParam<Real>("hardening_a0", 0.0, "hardening_a0");
-  params.addParam<Real>("hardening_eta", 1.0, "hardening_eta");
+      "parameter_omega_1",
+      0.0,
+      "Anisotropic plasticity parameter omega_1 (physical unit: dimensionless) according to S. "
+      "Pietruszczak and Z. Mróz (2000). "
+      "In the paper of Khaledi et al. (2023) this parameter is named c_{gamma1}.");
+  params.addParam<Real>("parameter_b_1",
+                        0.0,
+                        "Anisotropic plasticity parameter b_1 (physical unit: dimensionless) "
+                        "according to S. Pietruszczak and Z. "
+                        "Mróz (2000). In the "
+                        "paper of Khaledi et al. (2023) this parameter is named c_{gamma2}.");
+
+  // === shape of the plastic surface in the stress space ===
+  params.addRangeCheckedParam<Real>(
+      "tip_smoother",
+      0.0,
+      "tip_smoother>=0",
+      "The plastic yield surface cone vertex at J2 = 0 will be smoothed by the given "
+      "amount (physical unit: pressure). Typical value is 0.1*cohesion");
+  params.addParam<Real>("curvature_yield",
+                        0.0,
+                        "Curvature of plastic yield in p-q space (physical unit: dimensionless). "
+                        "In the paper of Khaledi et al. (2023) this parameter is named beta_1.");
+  params.addParam<Real>("lode_angle_coefficient",
+                        0.0,
+                        "Lode angle dependency coefficient, between 0 and 0.7 (physical unit: "
+                        "dimensionless). In the paper of "
+                        "Khaledi et al. (2023) this parameter is named beta.");
+  params.addParam<Real>(
+      "Fs_function_power", -0.25, "Power of Fs function (physical unit: dimensionless).");
+
+  // === ??? ===
+  params.addParam<Real>("psi_to_phi", 1.0, "psi_to_phi");
+
+  // === ??? ===
+  params.addParam<bool>("perfect_guess",
+                        true,
+                        "Provide a guess to the Newton-Raphson procedure "
+                        "that is the result from perfect plasticity. With "
+                        "severe hardening/softening this may be suboptimal.");
+
+  // === parameter groups ===
+  params.addParamNamesToGroup("gamma_mean parameter_omega_1 parameter_b_1", "Anisotropic Strength");
+  params.addParamNamesToGroup(
+      "tip_smoother curvature_yield lode_angle_coefficient Fs_function_power",
+      "Shape of Plastic Surface in Stress Space");
 
   return params;
 }
@@ -65,17 +92,14 @@ OpalinusPerfectPlasticStressUpdate::OpalinusPerfectPlasticStressUpdate(
     _perfect_guess(getParam<bool>("perfect_guess")),
     _small_smoother2(Utility::pow<2>(getParam<Real>("tip_smoother"))),
     _beta(getParam<Real>("lode_angle_coefficient")),
-    _betta1(getParam<Real>("curvature_yield")),
+    _beta1(getParam<Real>("curvature_yield")),
     _mv(getParam<Real>("Fs_function_power")),
-    _mean_gama(parameters.get<Real>("gama_mean") / std::sqrt(27.0)),
+    _mean_gamma(parameters.get<Real>("gamma_mean") / std::sqrt(27.0)),
     _omega1(getParam<Real>("parameter_omega_1")),
     _b1(getParam<Real>("parameter_b_1")),
     _localCoordinateSystem(
         getUserObject<CartesianLocalCoordinateSystem>("local_coordinate_system")),
-    _a0(getParam<Real>("hardening_a0")),
-    _eta(getParam<Real>("hardening_eta")),
-    _n0(getParam<Real>("parameter_n0")),
-    _gama(declareProperty<Real>(_base_name + "gama"))
+    _gamma(declareProperty<Real>(_base_name + "gamma"))
 
 {
 }
@@ -90,7 +114,7 @@ OpalinusPerfectPlasticStressUpdate::computeStressParams(const RankTwoTensor & st
   stress_params[5] = stress(1, 2);
   stress_params[4] = stress(0, 2);
   stress_params[3] = stress(0, 1);
-  setGamaValue(stress_params, _gama[_qp]);
+  setGammaValue(stress_params, _gamma[_qp]);
 }
 
 std::vector<RankTwoTensor>
@@ -176,9 +200,9 @@ OpalinusPerfectPlasticStressUpdate::yieldFunctionValuesV(const std::vector<Real>
 
   // const Real q = std::sqrt(j2);
   const Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
-  const Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  const Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
-  const Real fb = _gama[_qp] * i1;
+  const Real fb = _gamma[_qp] * i1;
 
   yf[0] = std::sqrt(j2 + _small_smoother2) + fb * fs;
 
@@ -209,11 +233,11 @@ OpalinusPerfectPlasticStressUpdate::computeAllQV(const std::vector<Real> & stres
 
   const Real q = std::sqrt(j2);
   const Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
-  const Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  const Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
-  const Real _gamaq = _psi_to_phi * _gama[_qp];
-  const Real fb = _gama[_qp] * i1;
-  const Real fbg = _gamaq * i1;
+  const Real _gammaq = _psi_to_phi * _gamma[_qp];
+  const Real fb = _gamma[_qp] * i1;
+  const Real fbg = _gammaq * i1;
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj2ds_test = stress_now.dsecondInvariant();
@@ -263,8 +287,8 @@ OpalinusPerfectPlasticStressUpdate::computeAllQV(const std::vector<Real> & stres
     dj3ds[3] = dj3ds_t(0, 1);
   }
 
-  const Real dfbdi1 = _gama[_qp];
-  const Real dfbgdi1 = _gamaq;
+  const Real dfbdi1 = _gamma[_qp];
+  const Real dfbgdi1 = _gammaq;
 
   // const Real dfsdi1 = 0.0;   // if this variable is always zero, let's comment it out
   const Real dfdi1 = dfbdi1 * fs;  // + fb * dfsdi1;
@@ -529,9 +553,9 @@ OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real> & tr
 
     const Real sr = std::clamp(cof * j3_trial / std::pow(j2_trial, 1.5), -1.0, +1.0);
 
-    const Real fs_trial = std::pow(std::exp(_betta1 * i1_trial) + _beta * sr, _mv);
+    const Real fs_trial = std::pow(std::exp(_beta1 * i1_trial) + _beta * sr, _mv);
 
-    const Real fb_trial = _gama[_qp] * i1_trial;
+    const Real fb_trial = _gamma[_qp] * i1_trial;
 
     const Real trial_desai_yf =
         std::sqrt(std::pow(q_trial, 2.0) + _small_smoother2) + fb_trial * fs_trial;
@@ -599,18 +623,18 @@ OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real> & tr
 
       // const Real sr = std::clamp(cof * j3_test / std::pow(j2_test, 1.5), -1.0, +1.0);
 
-      // const Real fs_test = std::pow(std::exp(_betta1 * i1_test) + _beta * sr, _mv);
+      // const Real fs_test = std::pow(std::exp(_beta1 * i1_test) + _beta * sr, _mv);
 
-      // const Real fb_test = _gama[_qp] * i1_test;
+      // const Real fb_test = _gamma[_qp] * i1_test;
 
       // const Real test_desai_yf =
       //     std::sqrt(std::pow(q_test, 2.0) + _small_smoother2) + fb_test * fs_test;
 
-      if (i1_test >= 3.0 * _St - std::sqrt(_small_smoother2) / (_mean_gama))
+      if (i1_test >= 3.0 * _St - std::sqrt(_small_smoother2) / (_mean_gamma))
       {
-        stress_params[0] = _St - std::sqrt(_small_smoother2) / (3.0 * _mean_gama);
-        stress_params[1] = _St - std::sqrt(_small_smoother2) / (3.0 * _mean_gama);
-        stress_params[2] = _St - std::sqrt(_small_smoother2) / (3.0 * _mean_gama);
+        stress_params[0] = _St - std::sqrt(_small_smoother2) / (3.0 * _mean_gamma);
+        stress_params[1] = _St - std::sqrt(_small_smoother2) / (3.0 * _mean_gamma);
+        stress_params[2] = _St - std::sqrt(_small_smoother2) / (3.0 * _mean_gamma);
         stress_params[3] = 0.0;
         stress_params[4] = 0.0;
         stress_params[5] = 0.0;
@@ -618,7 +642,7 @@ OpalinusPerfectPlasticStressUpdate::initializeVarsV(const std::vector<Real> & tr
         //     trial_stress_params[0] + trial_stress_params[1] + trial_stress_params[2];
         // const Real p = stress_params[0] + stress_params[1] + stress_params[2];
 
-        gaE = _En * (trial_stress_params[0] - stress_params[0]) / (_Eij[0][0] * _mean_gama);
+        gaE = _En * (trial_stress_params[0] - stress_params[0]) / (_Eij[0][0] * _mean_gamma);
       }
 
       found_solution = true;
@@ -735,7 +759,7 @@ OpalinusPerfectPlasticStressUpdate::consistentTangentOperatorV(
                                                  stress_params[4],
                                                  stress_params[5],
                                                  stress_params[2]);
-  setGamaValue(stress_params, _gama[_qp]);
+  setGammaValue(stress_params, _gamma[_qp]);
   const Real cof = std::sqrt(27.0) / 2.0;
   const Real i1 = stress_now.trace() - 3.0 * _St;
   const Real j2 = std::max(1e-2, stress_now.secondInvariant());
@@ -744,12 +768,12 @@ OpalinusPerfectPlasticStressUpdate::consistentTangentOperatorV(
   const Real q = std::sqrt(j2);
   const Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  const Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  const Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
   ////
-  const Real _gamaq = _psi_to_phi * _gama[_qp];
-  const Real fb = _gama[_qp] * i1;
-  const Real fbg = _gamaq * i1;
+  const Real _gammaq = _psi_to_phi * _gamma[_qp];
+  const Real fb = _gamma[_qp] * i1;
+  const Real fbg = _gammaq * i1;
 
   const RankTwoTensor di1ds_t = stress_now.dtrace();
   RankTwoTensor dj2ds_t = stress_now.deviatoric();
@@ -765,9 +789,9 @@ OpalinusPerfectPlasticStressUpdate::consistentTangentOperatorV(
     d2j3ds_t = RankFourTensor();
   }
 
-  const Real dfbdi1 = _gama[_qp];
+  const Real dfbdi1 = _gamma[_qp];
 
-  const Real dfbgdi1 = _gamaq;
+  const Real dfbgdi1 = _gammaq;
   // const Real dfsdi1 = 0.0;
   const Real dfdi1 = dfbdi1 * fs;  // + fb * dfsdi1;
   const Real dgdi1 = dfbgdi1 * fs; // + fbg * dfsdi1;
@@ -873,10 +897,10 @@ OpalinusPerfectPlasticStressUpdate::compute_dg(const std::vector<Real> & stress_
   const Real q = std::sqrt(j2);
   const Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  const Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  const Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
-  const Real _gamaq = _psi_to_phi * _gama[_qp];
-  const Real fbg = _gamaq * i1;
+  const Real _gammaq = _psi_to_phi * _gamma[_qp];
+  const Real fbg = _gammaq * i1;
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj3ds_t = stress_now.dthirdInvariant();
@@ -924,7 +948,7 @@ OpalinusPerfectPlasticStressUpdate::compute_dg(const std::vector<Real> & stress_
     dj3ds[3] = dj3ds_t(0, 1);
   }
 
-  const Real dfbgdi1 = _gamaq;
+  const Real dfbgdi1 = _gammaq;
   // const Real dfsdi1 = 0.0;
   const Real dgdi1 = dfbgdi1 * fs; // + fbg * dfsdi1;
   const Real dfsdj2 =
@@ -968,9 +992,9 @@ OpalinusPerfectPlasticStressUpdate::compute_df(const std::vector<Real> & stress_
   const Real q = std::sqrt(j2);
   const Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  const Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  const Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
-  const Real fb = _gama[_qp] * i1;
+  const Real fb = _gamma[_qp] * i1;
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj3ds_t = stress_now.dthirdInvariant();
@@ -1018,7 +1042,7 @@ OpalinusPerfectPlasticStressUpdate::compute_df(const std::vector<Real> & stress_
     dj3ds[3] = dj3ds_t(0, 1);
   }
 
-  const Real dfbdi1 = _gama[_qp];
+  const Real dfbdi1 = _gamma[_qp];
   // const Real dfsdi1 = 0.0;
   const Real dfdi1 = dfbdi1 * fs; // + fb * dfsdi1;
   const Real dfsdj2 =
@@ -1039,8 +1063,8 @@ OpalinusPerfectPlasticStressUpdate::compute_df(const std::vector<Real> & stress_
 }
 
 void
-OpalinusPerfectPlasticStressUpdate::setGamaValue(const std::vector<Real> & stress_params,
-                                                 Real & gama) const
+OpalinusPerfectPlasticStressUpdate::setGammaValue(const std::vector<Real> & stress_params,
+                                                  Real & gamma) const
 {
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],
@@ -1063,8 +1087,8 @@ OpalinusPerfectPlasticStressUpdate::setGamaValue(const std::vector<Real> & stres
 
   const Real lv2 = std::pow(cosb, 2.0);
 
-  gama = (_mean_gama * (1.0 + _omega1 * (1.0 - 3.0 * lv2) +
-                        _b1 * std::pow(_omega1, 2.0) * std::pow((1.0 - 3.0 * lv2), 2.0)));
+  gamma = (_mean_gamma * (1.0 + _omega1 * (1.0 - 3.0 * lv2) +
+                          _b1 * std::pow(_omega1, 2.0) * std::pow((1.0 - 3.0 * lv2), 2.0)));
 
   return;
 }
@@ -1095,11 +1119,11 @@ OpalinusPerfectPlasticStressUpdate::compute_d2g(const std::vector<Real> & stress
 
   const Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  const Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  const Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
-  Real _gamaq = _psi_to_phi * _gama[_qp];
+  Real _gammaq = _psi_to_phi * _gamma[_qp];
 
-  const Real fbg = _gamaq * i1;
+  const Real fbg = _gammaq * i1;
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj3ds_t = stress_now.dthirdInvariant();
@@ -1148,7 +1172,7 @@ OpalinusPerfectPlasticStressUpdate::compute_d2g(const std::vector<Real> & stress
     dj3ds[3] = dj3ds_t(0, 1);
   }
 
-  const Real dfbgdi1 = _gamaq;
+  const Real dfbgdi1 = _gammaq;
   // const Real dfsdi1 = 0.0;
 
   const Real dfsdj2 =

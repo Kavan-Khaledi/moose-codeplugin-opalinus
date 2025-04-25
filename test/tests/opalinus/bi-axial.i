@@ -170,7 +170,7 @@
 
   [PerfectPlastic]
     type = OpalinusPerfectPlasticStressUpdate
-    gama_mean = 1
+    gamma_mean = 1
     p_tensile = 1
     local_coordinate_system = 'ucsInitialStress'
     smoothing_tol = 0.0

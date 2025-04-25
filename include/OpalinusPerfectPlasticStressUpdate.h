@@ -29,15 +29,12 @@ protected:
   const bool _perfect_guess;
   const Real _small_smoother2;
   const Real _beta;
-  const Real _betta1;
+  const Real _beta1;
   const Real _mv;
-  const Real _mean_gama;
+  const Real _mean_gamma;
   const Real _omega1;
   const Real _b1;
   const CartesianLocalCoordinateSystem & _localCoordinateSystem;
-  const Real _a0;
-  const Real _eta;
-  const Real _n0;
 
   // /// plastic strain
   // MaterialProperty<Real> & _alfa;
@@ -45,15 +42,15 @@ protected:
   // /// Old value of plastic strain
   // const MaterialProperty<Real> & _alfa_old;
 
-  MaterialProperty<Real> & _gama;
+  MaterialProperty<Real> & _gamma;
 
   // /// Old value of plastic strain
-  // const MaterialProperty<Real> & _gama_old;
+  // const MaterialProperty<Real> & _gamma_old;
   // /// plastic strain
-  // MaterialProperty<Real> & _gama0;
+  // MaterialProperty<Real> & _gamma0;
 
   // /// Old value of plastic strain
-  // const MaterialProperty<Real> & _gama0_old;
+  // const MaterialProperty<Real> & _gamma0_old;
 
   void computeStressParams(const RankTwoTensor & stress,
                            std::vector<Real> & stress_params) const override;
@@ -120,7 +117,7 @@ protected:
   virtual void compute_df(const std::vector<Real> & stress_params,
                           const std::vector<Real> & intnl,
                           std::vector<Real> & dff) const;
-  virtual void setGamaValue(const std::vector<Real> & stress_params, Real & gama) const;
+  virtual void setGammaValue(const std::vector<Real> & stress_params, Real & gamma) const;
 
   virtual void compute_d2g(const std::vector<Real> & stress_params,
                            const std::vector<Real> & intnl,

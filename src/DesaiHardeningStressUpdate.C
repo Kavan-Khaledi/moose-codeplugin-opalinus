@@ -15,43 +15,110 @@ DesaiHardeningStressUpdate::validParams()
 
   params.addClassDescription("Compute stress for Non-associated Plasticity for Geomaterials");
 
-  params.addParam<bool>("perfect_guess",
-                        true,
-                        "Provide a guess to the Newton-Raphson procedure "
-                        "that is the result from perfect plasticity. With "
-                        "severe hardening/softening this may be "
-                        "suboptimal.");
-  // params.addRequiredParam<Real>("yield_slop_pq", "yield_slop_pq"); //
-  params.addRequiredParam<Real>("gama_mean", "gama_mean");
-  params.addParam<Real>("parameter_omega_1", 0.0, "parameter_omega_1");
-  params.addParam<Real>("parameter_b_1", 0.0, "parameter_b_1");
+  // === material coordinate system ===
   params.addRequiredParam<UserObjectName>(
       "local_coordinate_system",
       "The UserObject that defines the local coordinate system. "
       "The local axis e1 and e2 of this coordinate system are considered in plane while "
       "the local axis e3 is assumed to be 'normal'.");
-  params.addParam<Real>("psi_to_phi", 1.0, "psi_to_phi");  //
-  params.addRequiredParam<Real>("p_tensile", "p_tensile"); //
-  params.addRequiredRangeCheckedParam<Real>(
+
+  params.addRequiredParam<Real>("p_tensile",
+                                "Intersection of the failure with the p-axis in the p-q-diagram "
+                                "(physical unit: pressure).");
+
+  // === Anisotropic Strength ===
+  // parameters from S. Pietruszczak, Z. Mroz: "Formulation of anisotropic failure criteria
+  // incorporating a microstructure tensor", Computers and Geotechnics 26 (2) (2000) 105-112.
+  params.addRequiredParam<Real>(
+      "gamma_mean",
+      "Slope of the failure line in p-q-diagram. In the paper of Khaledi "
+      "et al. (2023) this parameter is named gamma_m (physical unit: dimensionless).");
+  params.addParam<Real>(
+      "parameter_omega_1",
+      0.0,
+      "Anisotropic plasticity parameter omega_1 (physical unit: dimensionless) according to S. "
+      "Pietruszczak and Z. Mróz (2000). "
+      "In the paper of Khaledi et al. (2023) this parameter is named c_{gamma1}.");
+  params.addParam<Real>("parameter_b_1",
+                        0.0,
+                        "Anisotropic plasticity parameter b_1 (physical unit: dimensionless) "
+                        "according to S. Pietruszczak and Z. "
+                        "Mróz (2000). In the "
+                        "paper of Khaledi et al. (2023) this parameter is named c_{gamma2}.");
+
+  // === shape of the plastic surface in the stress space ===
+  params.addRangeCheckedParam<Real>(
       "tip_smoother",
+      0.0,
       "tip_smoother>=0",
-      "The cone vertex at J2 = 0 will be smoothed by the given "
-      "amount.  Typical value is 0.1*cohesion");
-  params.addParam<Real>("curvature_yield", 0.0, "Curvature of plastic yield in p-q space");
+      "The plastic yield surface cone vertex at J2 = 0 will be smoothed by the given "
+      "amount (physical unit: pressure). Typical value is 0.1*cohesion");
+  params.addParam<Real>("curvature_yield",
+                        0.0,
+                        "Curvature of plastic yield in p-q space (physical unit: dimensionless). "
+                        "In the paper of Khaledi et al. (2023) this parameter is named beta_1.");
+  params.addParam<Real>("lode_angle_coefficient",
+                        0.0,
+                        "Lode angle dependency coefficient, between 0 and 0.7 (physical unit: "
+                        "dimensionless). In the paper of "
+                        "Khaledi et al. (2023) this parameter is named beta.");
   params.addParam<Real>(
-      "lode_angle_coefficient", 0.0, "lode angle dependency coefficient, between 0 and 0.7");
-  params.addParam<Real>("Fs_function_power", -0.25, "power of Fs function");
-  params.addParam<Real>("parameter_n0", 3.0, "parameter_n0");
-  params.addParam<Real>("hardening_a0", 0.0, "hardening_a0");
-  params.addParam<Real>("hardening_eta", 1.0, "hardening_eta");
-  params.addParam<Real>("kesi0", 1.0e15, "kesi0");
-  params.addRequiredCoupledVar("nonlocal_variable", "This is non local variable for damage");
-  params.addParam<Real>("parameter_damageI", 1.0, "parameter_damageI"); // damage parameter
-  params.addParam<Real>("parameter_damageA", 1.0, "parameter_damageA"); // damage parameter
-  params.addParam<Real>("parameter_damageF", 1.0, "parameter_damageF"); // damage parameter
-  params.addParam<Real>("parameter_damageN", 1.0, "parameter_damageN"); // damage parameter
+      "Fs_function_power", -0.25, "Power of Fs function (physical unit: dimensionless).");
   params.addParam<Real>(
-      "parameter_gamar", 0.3, "parameter_gamar"); // this is residual gama gamar=0.045 opalinus
+      "parameter_n0",
+      3.0,
+      "Anisotropy factor, i.e. the ratio between the undrained elastic moduli of P- and "
+      "S-specimens. For Opalinus clay this parameter ranges between 2 and 3."
+      "(physical unit: dimensionless). In the paper of Khaledi et al. (2023) this parameter is "
+      "named n.");
+
+  // === Hardening ===
+  params.addParam<Real>("hardening_a0",
+                        0.0,
+                        "Strain hardening parameter (physical unit: dimensionless). "
+                        "This parameter factorises the hardening. "
+                        "In the paper of Khaledi et al. (2023) this parameter is named a_1.");
+
+  params.addParam<Real>("hardening_eta",
+                        1.0,
+                        "Strain hardening parameter (physical unit: dimensionless). "
+                        "This parameter is the exponent applied to the accumulated plastic strain. "
+                        "In the paper of Khaledi et al. (2023) this parameter is named eta.");
+
+  // === Damage ===
+  params.addRequiredCoupledVar("nonlocal_variable", "This is the non-local variable for damage");
+  params.addParam<Real>(
+      "parameter_damageI",
+      1.0,
+      "Onset of damage. This value is compared to the value of the "
+      "'nonlocal_variable' and if equal or exceeded, damage is considered."); // damage parameter
+  params.addParam<Real>("parameter_damageA", 1.0, "parameter_damageA");       // damage parameter
+  params.addParam<Real>("parameter_damageF", 1.0, "parameter_damageF");       // damage parameter
+  params.addParam<Real>("parameter_damageN", 1.0, "parameter_damageN");       // damage parameter
+  params.addParam<Real>("parameter_gammar",
+                        0.3,
+                        "Residual gamma (physical unit: dimensionless). "
+                        "For Opalinus this value equals usually 0.045.");
+
+  // === ??? ===
+  params.addParam<Real>("psi_to_phi", 1.0, "psi_to_phi");
+
+  // === ??? ===
+  params.addParam<bool>("perfect_guess",
+                        true,
+                        "Provide a guess to the Newton-Raphson procedure "
+                        "that is the result from perfect plasticity. With "
+                        "severe hardening/softening this may be suboptimal.");
+
+  // === parameter groups ===
+  params.addParamNamesToGroup("gamma_mean parameter_omega_1 parameter_b_1", "Anisotropic Strength");
+  params.addParamNamesToGroup(
+      "tip_smoother curvature_yield lode_angle_coefficient Fs_function_power parameter_n0",
+      "Shape of Plastic Surface in Stress Space");
+  params.addParamNamesToGroup("gamma_mean parameter_omega_1 parameter_b_1", "Strain Hardening");
+  params.addParamNamesToGroup("nonlocal_variable parameter_damageI parameter_damageA "
+                              "parameter_damageF parameter_damageN parameter_gammar",
+                              "Post-Peak / Damage");
 
   return params;
 }
@@ -63,9 +130,9 @@ DesaiHardeningStressUpdate::DesaiHardeningStressUpdate(const InputParameters & p
     _perfect_guess(getParam<bool>("perfect_guess")),
     _small_smoother2(Utility::pow<2>(getParam<Real>("tip_smoother"))),
     _beta(getParam<Real>("lode_angle_coefficient")),
-    _betta1(getParam<Real>("curvature_yield")),
+    _beta1(getParam<Real>("curvature_yield")),
     _mv(getParam<Real>("Fs_function_power")),
-    _mean_gama(parameters.get<Real>("gama_mean")),
+    _mean_gamma(parameters.get<Real>("gamma_mean")),
     _omega1(getParam<Real>("parameter_omega_1")),
     _b1(getParam<Real>("parameter_b_1")),
     _localCoordinateSystem(
@@ -73,21 +140,20 @@ DesaiHardeningStressUpdate::DesaiHardeningStressUpdate(const InputParameters & p
     _a0(getParam<Real>("hardening_a0")),
     _eta(getParam<Real>("hardening_eta")),
     _n0(getParam<Real>("parameter_n0")),
-    _kesi0(getParam<Real>("kesi0")),
     _nonlocal_var(coupledValue("nonlocal_variable")),
-    _gamar(getParam<Real>("parameter_gamar")),
+    _gammar(getParam<Real>("parameter_gammar")),
     _dam_I(getParam<Real>("parameter_damageI")),
     _dam_A(getParam<Real>("parameter_damageA")),
     _dam_F(getParam<Real>("parameter_damageF")),
     _dam_N(getParam<Real>("parameter_damageN")),
     _alfa(declareProperty<Real>(_base_name + "alfa")),
-    _alfa_old(getMaterialPropertyOld<Real>(_base_name + "alfa")),
-    _gama(declareProperty<Real>(_base_name + "gama")),
-    _gama_old(getMaterialPropertyOld<Real>(_base_name + "gama")),
-    _gama0(declareProperty<Real>(_base_name + "gama0")),
-    _gama0_old(getMaterialPropertyOld<Real>(_base_name + "gama0"))
-//  _gama(parameters.get<Real>("gama_mean")/std::sqrt(27.0)),
-//  _gamaq(parameters.get<Real>("gama_mean")*parameters.get<Real>("psi_to_phi")/std::sqrt(27.0)),
+    _gamma(declareProperty<Real>(_base_name + "gamma")),
+    _gamma0(declareProperty<Real>(_base_name + "gamma0"))
+//    _alfa_old(getMaterialPropertyOld<Real>(_base_name + "alfa")),
+//    _gamma_old(getMaterialPropertyOld<Real>(_base_name + "gamma")),
+//    _gamma0_old(getMaterialPropertyOld<Real>(_base_name + "gamma0"))
+//  _gamma(parameters.get<Real>("gamma_mean")/std::sqrt(27.0)),
+//  _gammaq(parameters.get<Real>("gamma_mean")*parameters.get<Real>("psi_to_phi")/std::sqrt(27.0)),
 {
 }
 
@@ -137,7 +203,7 @@ DesaiHardeningStressUpdate::preReturnMapV(const std::vector<Real> & /*trial_stre
                                           const std::vector<Real> & /*yf*/,
                                           const RankFourTensor & Eijkl)
 {
-  (void)Eijkl;
+  (void)Eijkl; // silence compiler warning about unused variable
 
   std::vector<Real> stress_params(_num_sp);
   stress_params[0] = stress_trial(0, 0);
@@ -150,13 +216,13 @@ DesaiHardeningStressUpdate::preReturnMapV(const std::vector<Real> & /*trial_stre
   if (_t_step < 2)
   {
     const auto denom = std::sqrt(27.0);
-    _gama0[_qp] = _mean_gama / denom;
-    _gama[_qp] = _mean_gama / denom;
+    _gamma0[_qp] = _mean_gamma / denom;
+    _gamma[_qp] = _mean_gamma / denom;
   }
   else
   {
-    setGamaValue(stress_params, _gama0[_qp]);
-    setGamaDamage(_gama0[_qp], _gama[_qp]);
+    setGammaValue(stress_params, _gamma0[_qp]);
+    setGammaDamage(_gamma0[_qp], _gamma[_qp]);
   }
 }
 
@@ -211,20 +277,20 @@ DesaiHardeningStressUpdate::yieldFunctionValuesV(const std::vector<Real> & stres
   }
   Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
   _alfa[_qp] = _a0;
   if (_t_step < 2)
     _alfa[_qp] = _a0;
   else
   {
-    setGamaValue(stress_params, _gama0[_qp]);
-    setGamaDamage(_gama0[_qp], _gama[_qp]);
+    setGammaValue(stress_params, _gamma0[_qp]);
+    setGammaDamage(_gamma0[_qp], _gamma[_qp]);
     _alfa[_qp] = _a0 * std::exp(-1.0 * intnl[0] / _eta);
   }
-  // Real _gamaq = _psi_to_phi * _gama[_qp];
-  const Real fb =
-      std::pow(std::pow(_gama[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+  // Real _gammaq = _psi_to_phi * _gamma[_qp];
+  const Real fb = std::pow(
+      std::pow(_gamma[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
 
   yf[0] = std::pow(std::pow(q, 2.0) + _small_smoother2, 0.5) - fb * fs;
 
@@ -262,26 +328,26 @@ DesaiHardeningStressUpdate::computeAllQV(const std::vector<Real> & stress_params
 
   Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
   _alfa[_qp] = _a0;
   if (_t_step < 2)
   {
     _alfa[_qp] = _a0;
-    //   _alfa[_qp]xx=(j2+_small_smoother2)/pow(fs,2.0)/pow(i1,_n0)-pow(_gama,2.0)*pow(i1,2.0-_n0);
+    //   _alfa[_qp]xx=(j2+_small_smoother2)/pow(fs,2.0)/pow(i1,_n0)-pow(_gamma,2.0)*pow(i1,2.0-_n0);
   }
   else
   {
-    setGamaValue(stress_params, _gama0[_qp]);
-    setGamaDamage(_gama0[_qp], _gama[_qp]);
+    setGammaValue(stress_params, _gamma0[_qp]);
+    setGammaDamage(_gamma0[_qp], _gamma[_qp]);
     _alfa[_qp] = _a0 * std::exp(-1.0 * intnl[0] / _eta);
   }
 
-  Real _gamaq = _psi_to_phi * _gama[_qp];
-  const Real fb =
-      std::pow(std::pow(_gama[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+  Real _gammaq = _psi_to_phi * _gamma[_qp];
+  const Real fb = std::pow(
+      std::pow(_gamma[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
   const Real fbg =
-      std::pow(std::pow(_gamaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+      std::pow(std::pow(_gammaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj3ds_t = stress_now.dthirdInvariant();
@@ -332,12 +398,13 @@ DesaiHardeningStressUpdate::computeAllQV(const std::vector<Real> & stress_params
   }
 
   const Real dfbdi1 =
-      (2.0 * std::pow(_gama[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+      (2.0 * std::pow(_gamma[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
       (2.0 * fb);
 
   const Real dfbgdi1 =
-      (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) / (2.0 * fbg);
-  const Real dfsdi1 = _betta1 * _mv * std::exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
+      (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+      (2.0 * fbg);
+  const Real dfsdi1 = _beta1 * _mv * std::exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
   const Real dfdi1 = -dfbdi1 * fs - fb * dfsdi1;
   const Real dgdi1 = -dfbgdi1 * fs - fbg * dfsdi1;
   const Real dfsdj2 =
@@ -384,7 +451,7 @@ DesaiHardeningStressUpdate::computeAllQV(const std::vector<Real> & stress_params
   const Real dfbg_dalfa = -std::pow(i1, _n0) / (2.0 * fbg);
   const Real d2fbg_di1_di =
       (-2.0 * _n0 * std::pow(i1, _n0 - 1.0) * fbg -
-       2.0 * (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) *
+       2.0 * (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) *
            dfbg_dalfa) /
       (4.0 * std::pow(fbg, 2.0));
   const Real d2gdi1_alfa = -d2fbg_di1_di * fs - dfbg_dalfa * dfsdi1;
@@ -473,18 +540,18 @@ DesaiHardeningStressUpdate::computeAllQV(const std::vector<Real> & stress_params
   d2j3ds[5][5] = d2j3ds_t(1, 2, 1, 2);
 
   const Real d2fbgdi1i1 =
-      ((2.0 * std::pow(_gamaq, 2.0) - _n0 * (_n0 - 1.0) * _alfa[_qp] * std::pow(i1, _n0 - 2.0)) *
+      ((2.0 * std::pow(_gammaq, 2.0) - _n0 * (_n0 - 1.0) * _alfa[_qp] * std::pow(i1, _n0 - 2.0)) *
            fbg -
-       (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) * dfbgdi1) /
+       (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) * dfbgdi1) /
       (4.0 * std::pow(fbg, 2.0));
   const Real d2fsdi1i1 =
-      std::pow(_betta1, 2.0) * _mv * exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv) +
-      std::pow(_betta1, 2.0) * _mv * std::exp(2.0 * _betta1 * i1) *
-          std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0);
-  const Real d2fsdi1j2 = -(3.0 * _beta * _betta1 * _mv * cof * j3 * std::exp(_betta1 * i1) *
+      std::pow(_beta1, 2.0) * _mv * exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv) +
+      std::pow(_beta1, 2.0) * _mv * std::exp(2.0 * _beta1 * i1) * std::pow(fs, (_mv - 2.0) / _mv) *
+          (_mv - 1.0);
+  const Real d2fsdi1j2 = -(3.0 * _beta * _beta1 * _mv * cof * j3 * std::exp(_beta1 * i1) *
                            std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0)) /
                          (2.0 * std::pow(j2, 2.5));
-  const Real d2fsdi1j3 = (_beta * _betta1 * _mv * cof * std::exp(_betta1 * i1) *
+  const Real d2fsdi1j3 = (_beta * _beta1 * _mv * cof * std::exp(_beta1 * i1) *
                           std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0)) /
                          std::pow(j2, 1.5);
   const Real d2fsdj2j2 = (15.0 * _beta * _mv * cof * j3 * std::pow(fs, (_mv - 1.0) / _mv)) /
@@ -605,7 +672,7 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
                                             std::vector<Real> & intnl) const
 {
 
-  // Real _gamaq = _psi_to_phi * _gama[_qp];
+  // Real _gammaq = _psi_to_phi * _gamma[_qp];
 
   if (_t_step < 2)
     _alfa[_qp] = _a0;
@@ -632,7 +699,7 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
                                                      trial_stress_params[5],
                                                      trial_stress_params[2]);
     const Real i1_trial =
-        std::max(1e-7, -(stress_trial.trace()) + 3.0 * _St); //-std::sqrt(_small_smoother2)/_gama;
+        std::max(1e-7, -(stress_trial.trace()) + 3.0 * _St); //-std::sqrt(_small_smoother2)/_gamma;
     const Real q_trial = std::pow(stress_trial.secondInvariant(), 0.5);
     Real j2_trial = (stress_trial.secondInvariant());
     Real j3_trial = (stress_trial.thirdInvariant());
@@ -646,9 +713,9 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
 
     Real sr = std::clamp(cof * j3_trial / std::pow(j2_trial, 1.5), -1.0, +1.0);
 
-    Real fs_trial = std::pow(std::exp(_betta1 * i1_trial) + _beta * sr, _mv);
+    Real fs_trial = std::pow(std::exp(_beta1 * i1_trial) + _beta * sr, _mv);
 
-    const Real fb_trial = std::pow(std::pow(_gama[_qp], 2.0) * std::pow(i1_trial, 2.0) -
+    const Real fb_trial = std::pow(std::pow(_gamma[_qp], 2.0) * std::pow(i1_trial, 2.0) -
                                        _alfa[_qp] * std::pow(i1_trial, _n0),
                                    0.5);
 
@@ -710,7 +777,8 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
                                                       stress_params[4],
                                                       stress_params[5],
                                                       stress_params[2]);
-      const Real i1_test = -(stress_test.trace()) + 3.0 * _St; //-std::sqrt(_small_smoother2)/_gama;
+      const Real i1_test =
+          -(stress_test.trace()) + 3.0 * _St; //-std::sqrt(_small_smoother2)/_gamma;
       const Real q_test = std::pow(stress_test.secondInvariant(), 0.5);
 
       if (i1_test <= 1e-7 && q_test < 1.0e-5)
@@ -721,13 +789,13 @@ DesaiHardeningStressUpdate::initializeVarsV(const std::vector<Real> & trial_stre
 
         gaE = 0.0;
 
-        // stress_params[0] = _St-std::sqrt(_small_smoother2) / (3.0 * _gama);
-        // stress_params[1] = _St-std::sqrt(_small_smoother2) / (3.0 * _gama);
-        // stress_params[2] = _St-std::sqrt(_small_smoother2) / (3.0 * _gama);
+        // stress_params[0] = _St-std::sqrt(_small_smoother2) / (3.0 * _gamma);
+        // stress_params[1] = _St-std::sqrt(_small_smoother2) / (3.0 * _gamma);
+        // stress_params[2] = _St-std::sqrt(_small_smoother2) / (3.0 * _gamma);
         // stress_params[3] = 0.0;
         // stress_params[4] = 0.0;
         // stress_params[5] = 0.0;
-        // gaE=(_Eij[0][0]+_Eij[1][1]+_Eij[2][2])*(trial_stress_params[0]-stress_params[0])/(_gamaq*(_Eij[0][0]+_Eij[1][1]+_Eij[2][2]));
+        // gaE=(_Eij[0][0]+_Eij[1][1]+_Eij[2][2])*(trial_stress_params[0]-stress_params[0])/(_gammaq*(_Eij[0][0]+_Eij[1][1]+_Eij[2][2]));
       }
       found_solution = true;
     }
@@ -860,21 +928,21 @@ DesaiHardeningStressUpdate::consistentTangentOperatorV(
 
   Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
   if (_t_step < 2)
   {
   }
   else
   {
-    setGamaValue(stress_params, _gama0[_qp]);
-    setGamaDamage(_gama0[_qp], _gama[_qp]);
+    setGammaValue(stress_params, _gamma0[_qp]);
+    setGammaDamage(_gamma0[_qp], _gamma[_qp]);
   }
-  Real _gamaq = _psi_to_phi * _gama[_qp];
-  const Real fb =
-      std::pow(std::pow(_gama[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+  Real _gammaq = _psi_to_phi * _gamma[_qp];
+  const Real fb = std::pow(
+      std::pow(_gamma[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
   const Real fbg =
-      std::pow(std::pow(_gamaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+      std::pow(std::pow(_gammaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
 
   const RankTwoTensor di1ds_t = -1.0 * stress_now.dtrace();
   RankTwoTensor dj2ds_t = stress_now.deviatoric();
@@ -890,11 +958,12 @@ DesaiHardeningStressUpdate::consistentTangentOperatorV(
   }
 
   const Real dfbdi1 =
-      (2.0 * std::pow(_gama[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+      (2.0 * std::pow(_gamma[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
       (2.0 * fb);
   const Real dfbgdi1 =
-      (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) / (2.0 * fbg);
-  const Real dfsdi1 = _betta1 * _mv * std::exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
+      (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+      (2.0 * fbg);
+  const Real dfsdi1 = _beta1 * _mv * std::exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
   const Real dfdi1 = -(dfbdi1 * fs + fb * dfsdi1);
   const Real dgdi1 = -(dfbgdi1 * fs + fbg * dfsdi1);
   const Real dfsdj2 =
@@ -922,18 +991,18 @@ DesaiHardeningStressUpdate::consistentTangentOperatorV(
   dqdsig = dgdi1 * di1ds_t + dgdj2 * dj2ds_t + dgdj3 * dj3ds_t;
 
   const Real d2fbgdi1i1 =
-      ((2.0 * std::pow(_gamaq, 2.0) - _n0 * (_n0 - 1.0) * _alfa[_qp] * std::pow(i1, _n0 - 2.0)) *
+      ((2.0 * std::pow(_gammaq, 2.0) - _n0 * (_n0 - 1.0) * _alfa[_qp] * std::pow(i1, _n0 - 2.0)) *
            fbg -
-       (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) * dfbgdi1) /
+       (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) * dfbgdi1) /
       (4.0 * std::pow(fbg, 2.0));
   const Real d2fsdi1i1 =
-      std::pow(_betta1, 2.0) * _mv * exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv) +
-      std::pow(_betta1, 2.0) * _mv * std::exp(2.0 * _betta1 * i1) *
-          std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0);
-  const Real d2fsdi1j2 = -(3.0 * _beta * _betta1 * _mv * cof * j3 * std::exp(_betta1 * i1) *
+      std::pow(_beta1, 2.0) * _mv * exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv) +
+      std::pow(_beta1, 2.0) * _mv * std::exp(2.0 * _beta1 * i1) * std::pow(fs, (_mv - 2.0) / _mv) *
+          (_mv - 1.0);
+  const Real d2fsdi1j2 = -(3.0 * _beta * _beta1 * _mv * cof * j3 * std::exp(_beta1 * i1) *
                            std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0)) /
                          (2.0 * std::pow(j2, 2.5));
-  const Real d2fsdi1j3 = (_beta * _betta1 * _mv * cof * std::exp(_betta1 * i1) *
+  const Real d2fsdi1j3 = (_beta * _beta1 * _mv * cof * std::exp(_beta1 * i1) *
                           std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0)) /
                          std::pow(j2, 1.5);
   const Real d2fsdj2j2 = (15.0 * _beta * _mv * cof * j3 * std::pow(fs, (_mv - 1.0) / _mv)) /
@@ -1023,19 +1092,19 @@ DesaiHardeningStressUpdate::compute_dg(const std::vector<Real> & stress_params,
 
   Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
   if (_t_step < 2)
     _alfa[_qp] = _a0;
   else
   {
-    setGamaValue(stress_params, _gama0[_qp]);
-    setGamaDamage(_gama0[_qp], _gama[_qp]);
+    setGammaValue(stress_params, _gamma0[_qp]);
+    setGammaDamage(_gamma0[_qp], _gamma[_qp]);
     _alfa[_qp] = _a0 * std::exp(-1.0 * intnl[0] / _eta);
   }
-  Real _gamaq = _psi_to_phi * _gama[_qp];
+  Real _gammaq = _psi_to_phi * _gamma[_qp];
   const Real fbg =
-      std::pow(std::pow(_gamaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+      std::pow(std::pow(_gammaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj3ds_t = stress_now.dthirdInvariant();
@@ -1084,8 +1153,9 @@ DesaiHardeningStressUpdate::compute_dg(const std::vector<Real> & stress_params,
   }
 
   const Real dfbgdi1 =
-      (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) / (2.0 * fbg);
-  const Real dfsdi1 = _betta1 * _mv * std::exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
+      (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+      (2.0 * fbg);
+  const Real dfsdi1 = _beta1 * _mv * std::exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
   const Real dgdi1 = -dfbgdi1 * fs - fbg * dfsdi1;
   const Real dfsdj2 =
       (-1.5 * _beta * cof * j3 * _mv * std::pow(fs, (_mv - 1.0) / _mv)) / std::pow(j2, 2.5);
@@ -1133,19 +1203,19 @@ DesaiHardeningStressUpdate::compute_df(const std::vector<Real> & stress_params,
 
   Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
   if (_t_step < 2)
     _alfa[_qp] = _a0;
   else
   {
-    setGamaValue(stress_params, _gama0[_qp]);
-    setGamaDamage(_gama0[_qp], _gama[_qp]);
+    setGammaValue(stress_params, _gamma0[_qp]);
+    setGammaDamage(_gamma0[_qp], _gamma[_qp]);
     _alfa[_qp] = _a0 * std::exp(-1.0 * intnl[0] / _eta);
   }
-  // Real _gamaq = _psi_to_phi * _gama[_qp];
-  const Real fb =
-      std::pow(std::pow(_gama[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+  // Real _gammaq = _psi_to_phi * _gamma[_qp];
+  const Real fb = std::pow(
+      std::pow(_gamma[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj3ds_t = stress_now.dthirdInvariant();
@@ -1194,9 +1264,9 @@ DesaiHardeningStressUpdate::compute_df(const std::vector<Real> & stress_params,
   }
 
   const Real dfbdi1 =
-      (2.0 * std::pow(_gama[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+      (2.0 * std::pow(_gamma[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
       (2.0 * fb);
-  const Real dfsdi1 = _betta1 * _mv * std::exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
+  const Real dfsdi1 = _beta1 * _mv * std::exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
   const Real dfdi1 = -dfbdi1 * fs - fb * dfsdi1;
   const Real dfsdj2 =
       (-1.5 * _beta * cof * j3 * _mv * std::pow(fs, (_mv - 1.0) / _mv)) / std::pow(j2, 2.5);
@@ -1217,7 +1287,8 @@ DesaiHardeningStressUpdate::compute_df(const std::vector<Real> & stress_params,
 }
 
 void
-DesaiHardeningStressUpdate::setGamaValue(const std::vector<Real> & stress_params, Real & gama) const
+DesaiHardeningStressUpdate::setGammaValue(const std::vector<Real> & stress_params,
+                                          Real & gamma) const
 {
   const RankTwoTensor stress_now = RankTwoTensor(stress_params[0],
                                                  stress_params[3],
@@ -1249,9 +1320,9 @@ DesaiHardeningStressUpdate::setGamaValue(const std::vector<Real> & stress_params
   //   (pow(lamda[0], 2.0) + pow(lamda[1], 2.0) + pow(lamda[2], 2.0));
   const Real lv2 = pow(cosb, 2.0);
 
-  gama = (_mean_gama * (1.0 + _omega1 * (1.0 - 3.0 * lv2) +
-                        _b1 * pow(_omega1, 2.0) * pow((1.0 - 3.0 * lv2), 2.0))) /
-         std::sqrt(27.0);
+  gamma = (_mean_gamma * (1.0 + _omega1 * (1.0 - 3.0 * lv2) +
+                          _b1 * pow(_omega1, 2.0) * pow((1.0 - 3.0 * lv2), 2.0))) /
+          std::sqrt(27.0);
 
   return;
 }
@@ -1287,26 +1358,26 @@ DesaiHardeningStressUpdate::compute_d2g(const std::vector<Real> & stress_params,
 
   Real sr = std::clamp(cof * j3 / std::pow(j2, 1.5), -1.0, +1.0);
 
-  Real fs = std::pow(std::exp(_betta1 * i1) + _beta * sr, _mv);
+  Real fs = std::pow(std::exp(_beta1 * i1) + _beta * sr, _mv);
 
   _alfa[_qp] = _a0;
   if (_t_step < 2)
   {
     _alfa[_qp] = _a0;
-    //   _alfa[_qp]xx=(j2+_small_smoother2)/pow(fs,2.0)/pow(i1,_n0)-pow(_gama,2.0)*pow(i1,2.0-_n0);
+    //   _alfa[_qp]xx=(j2+_small_smoother2)/pow(fs,2.0)/pow(i1,_n0)-pow(_gamma,2.0)*pow(i1,2.0-_n0);
   }
   else
   {
-    setGamaValue(stress_params, _gama0[_qp]);
-    setGamaDamage(_gama0[_qp], _gama[_qp]);
+    setGammaValue(stress_params, _gamma0[_qp]);
+    setGammaDamage(_gamma0[_qp], _gamma[_qp]);
     _alfa[_qp] = _a0 * std::exp(-1.0 * intnl[0] / _eta);
   }
-  Real _gamaq = _psi_to_phi * _gama[_qp];
+  Real _gammaq = _psi_to_phi * _gamma[_qp];
   // const Real fb =
-  //     std::pow(std::pow(_gama[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0),
+  //     std::pow(std::pow(_gamma[_qp], 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0),
   //     0.5);
   const Real fbg =
-      std::pow(std::pow(_gamaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
+      std::pow(std::pow(_gammaq, 2.0) * std::pow(i1, 2.0) - _alfa[_qp] * std::pow(i1, _n0), 0.5);
 
   const RankTwoTensor dj2ds_t = stress_now.deviatoric();
   const RankTwoTensor dj3ds_t = stress_now.dthirdInvariant();
@@ -1357,12 +1428,13 @@ DesaiHardeningStressUpdate::compute_d2g(const std::vector<Real> & stress_params,
   }
 
   // const Real dfbdi1 =
-  //     (2.0 * std::pow(_gama[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+  //     (2.0 * std::pow(_gamma[_qp], 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
   //     (2.0 * fb);
 
   const Real dfbgdi1 =
-      (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) / (2.0 * fbg);
-  const Real dfsdi1 = _betta1 * _mv * std::exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
+      (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) /
+      (2.0 * fbg);
+  const Real dfsdi1 = _beta1 * _mv * std::exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv);
   // const Real dfdi1 = -dfbdi1 * fs - fb * dfsdi1;
   // const Real dgdi1 = -dfbgdi1 * fs - fbg * dfsdi1;
   const Real dfsdj2 =
@@ -1443,18 +1515,18 @@ DesaiHardeningStressUpdate::compute_d2g(const std::vector<Real> & stress_params,
   d2j3ds[5][5] = d2j3ds_t(1, 2, 1, 2);
 
   const Real d2fbgdi1i1 =
-      ((2.0 * std::pow(_gamaq, 2.0) - _n0 * (_n0 - 1.0) * _alfa[_qp] * std::pow(i1, _n0 - 2.0)) *
+      ((2.0 * std::pow(_gammaq, 2.0) - _n0 * (_n0 - 1.0) * _alfa[_qp] * std::pow(i1, _n0 - 2.0)) *
            fbg -
-       (2.0 * std::pow(_gamaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) * dfbgdi1) /
+       (2.0 * std::pow(_gammaq, 2.0) * i1 - _n0 * _alfa[_qp] * std::pow(i1, _n0 - 1.0)) * dfbgdi1) /
       (4.0 * std::pow(fbg, 2.0));
   const Real d2fsdi1i1 =
-      std::pow(_betta1, 2.0) * _mv * exp(_betta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv) +
-      std::pow(_betta1, 2.0) * _mv * std::exp(2.0 * _betta1 * i1) *
-          std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0);
-  const Real d2fsdi1j2 = -(3.0 * _beta * _betta1 * _mv * cof * j3 * std::exp(_betta1 * i1) *
+      std::pow(_beta1, 2.0) * _mv * exp(_beta1 * i1) * std::pow(fs, (_mv - 1.0) / _mv) +
+      std::pow(_beta1, 2.0) * _mv * std::exp(2.0 * _beta1 * i1) * std::pow(fs, (_mv - 2.0) / _mv) *
+          (_mv - 1.0);
+  const Real d2fsdi1j2 = -(3.0 * _beta * _beta1 * _mv * cof * j3 * std::exp(_beta1 * i1) *
                            std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0)) /
                          (2.0 * std::pow(j2, 2.5));
-  const Real d2fsdi1j3 = (_beta * _betta1 * _mv * cof * std::exp(_betta1 * i1) *
+  const Real d2fsdi1j3 = (_beta * _beta1 * _mv * cof * std::exp(_beta1 * i1) *
                           std::pow(fs, (_mv - 2.0) / _mv) * (_mv - 1.0)) /
                          std::pow(j2, 1.5);
   const Real d2fsdj2j2 = (15.0 * _beta * _mv * cof * j3 * std::pow(fs, (_mv - 1.0) / _mv)) /
@@ -1512,17 +1584,17 @@ DesaiHardeningStressUpdate::compute_d2g(const std::vector<Real> & stress_params,
 }
 
 void
-DesaiHardeningStressUpdate::setGamaDamage(const Real & gama0, Real & gama) const
+DesaiHardeningStressUpdate::setGammaDamage(const Real & gamma0, Real & gamma) const
 {
   // here we define damage-dependent material parameters. If damage is zero, then they are equal to
   // their initial value
   Real softVar = _nonlocal_var[_qp];
 
   if (softVar < _dam_I)
-    gama = gama0;
+    gamma = gamma0;
   else
-    gama =
-        _gamar + (gama0 - _gamar) * (exp(-1.0 * _dam_A * pow((softVar - _dam_I) / _dam_F, _dam_N)));
+    gamma = _gammar +
+            (gamma0 - _gammar) * (exp(-1.0 * _dam_A * pow((softVar - _dam_I) / _dam_F, _dam_N)));
 
   return;
 }
