@@ -115,7 +115,7 @@ DesaiHardeningStressUpdate::validParams()
   params.addParamNamesToGroup(
       "tip_smoother curvature_yield lode_angle_coefficient Fs_function_power parameter_n0",
       "Shape of Plastic Surface in Stress Space");
-  params.addParamNamesToGroup("gamma_mean parameter_omega_1 parameter_b_1", "Strain Hardening");
+  params.addParamNamesToGroup("hardening_a0 hardening_eta", "Strain Hardening");
   params.addParamNamesToGroup("nonlocal_variable parameter_damageI parameter_damageA "
                               "parameter_damageF parameter_damageN parameter_gammar",
                               "Post-Peak / Damage");
